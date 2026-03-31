@@ -12,14 +12,13 @@ alwaysApply: false
 GET    /products              → list all products
 GET    /products/:id          → get product with aggregated rating
 GET    /products/:id/reviews  → list reviews for a product
-POST   /products/:id/reviews  → create a review (auth required)
-PUT    /reviews/:id           → edit own review (auth required)
-DELETE /reviews/:id           → delete own review (auth required)
-POST   /auth/register         → register
-POST   /auth/login            → login, sets refresh cookie
-POST   /auth/refresh          → exchange refresh cookie for new access token
-POST   /auth/logout           → clears refresh cookie
+POST   /products/:id/reviews  → create a review (auth: Firebase ID token)
+PUT    /reviews/:id           → edit own review (auth: Firebase ID token)
+DELETE /reviews/:id           → delete own review (auth: Firebase ID token)
+GET    /api/users/me          → optional: bootstrap local user row (auth: Firebase ID token)
 ```
+
+Sign-up, sign-in, and sign-out are **not** implemented by this API; they are handled by **Firebase Authentication** in the Angular app. Protected routes send `Authorization: Bearer <Firebase ID token>`.
 
 ## HTTP Status Codes
 
@@ -57,5 +56,4 @@ Use class-validator (NestJS) or Zod/Joi (Express) — whichever matches the chos
 
 ## Auth Middleware
 
-Protected routes must use an `authenticate` middleware that verifies the JWT access token
-and attaches `req.user` (or sets the NestJS request context). Never check auth inside service methods.
+Protected routes must use an `authenticate` middleware that verifies the **Firebase ID token** (JWT) with `firebase-admin` `verifyIdToken`, then loads or creates the application user (e.g. by `firebase_uid`) and attaches `req.user` (or sets the NestJS request context). Never check auth inside service methods.

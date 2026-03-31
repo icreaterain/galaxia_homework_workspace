@@ -11,9 +11,14 @@ For the reasoning behind each choice, see the [ADR log](adr/README.md).
 [Browser]
     │
     ▼
-[Angular SPA]  ──HTTP/JSON──▶  [Node.js REST API]  ──▶  [PostgreSQL]
-  :4200                            :3000                    :5432
+[Angular SPA :4200] ── Firebase Auth SDK ──▶ [Firebase Authentication]
+    │
+    │  REST + GraphQL, Authorization: Bearer <Firebase ID token>
+    ▼
+[Node.js API :3000]  ── firebase-admin verifyIdToken ──▶  [PostgreSQL :5432]
 ```
+
+Identity is externalized to Firebase; the API trusts only tokens it verifies with the Firebase Admin SDK.
 
 ---
 
@@ -26,7 +31,7 @@ For the reasoning behind each choice, see the [ADR log](adr/README.md).
 | API style | REST / JSON | [002](adr/002-rest-over-graphql.md) |
 | Database | PostgreSQL | [004](adr/004-postgresql.md) |
 | ORM / DB access | Prisma or TypeORM — TBD | [005](adr/005-orm.md) |
-| Authentication | JWT (access token in memory + httpOnly refresh cookie) | [006](adr/006-jwt-auth.md) |
+| Authentication | Firebase Authentication (ID tokens verified by API via Admin SDK) | [012](adr/012-firebase-authentication.md) |
 | Local dev | Docker Compose | [008](adr/008-docker-compose.md) |
 
 ---
@@ -35,10 +40,14 @@ For the reasoning behind each choice, see the [ADR log](adr/README.md).
 
 ```
 users
-  id          UUID PK
-  email       TEXT UNIQUE NOT NULL
-  password    TEXT NOT NULL          -- bcrypt hash
-  created_at  TIMESTAMPTZ
+  id            UUID PK
+  firebase_uid  TEXT UNIQUE NOT NULL   -- Firebase Auth UID (sub claim)
+  email         TEXT UNIQUE NOT NULL
+  display_name  TEXT
+  role          TEXT NOT NULL DEFAULT 'user'   -- user | admin
+  created_at    TIMESTAMPTZ
+  updated_at    TIMESTAMPTZ
+  -- No password: credentials live in Firebase only
 
 products
   id          UUID PK
@@ -65,16 +74,18 @@ A materialized view or caching layer can be added if performance becomes a conce
 
 ## API Surface
 
+Sign-in and sign-up are handled by **Firebase Authentication** in the Angular app (not by the API).
+
+Protected REST and GraphQL operations require `Authorization: Bearer <Firebase ID token>`.
+
 ```
-POST   /auth/register
-POST   /auth/login                   -- sets httpOnly refresh cookie
-POST   /auth/refresh                 -- exchanges refresh cookie for new access token
-POST   /auth/logout                  -- clears refresh cookie
+GET    /api/users/me                 -- optional bootstrap: ensure local user row exists (auth required)
+-- (or POST /api/users/sync — same purpose; choose one canonical contract at implementation)
 
 GET    /products                     -- public
 GET    /products/:id                 -- public, includes avg_rating + review_count
 GET    /products/:id/reviews         -- public
-POST   /products/:id/reviews         -- auth required
+POST   /products/:id/reviews         -- auth required (Firebase ID token)
 PUT    /reviews/:id                  -- auth required, owner only
 DELETE /reviews/:id                  -- auth required, owner only
 ```
@@ -85,8 +96,8 @@ DELETE /reviews/:id                  -- auth required, owner only
 
 - One review per user per product — enforced by DB unique constraint ([ADR 007](adr/007-one-review-per-user.md))
 - Reading reviews is public; writing requires authentication
-- Password hashes stored with bcrypt; plaintext passwords never persisted or logged
-- Access tokens are never stored in localStorage — in-memory only on the frontend
+- Identity is managed by Firebase; the API verifies Firebase ID tokens server-side and never stores passwords
+- Firebase ID tokens are short-lived; the Angular app uses the Firebase client SDK to refresh tokens; attach the current ID token to API calls (typically via an HTTP interceptor)
 
 ---
 
@@ -95,7 +106,7 @@ DELETE /reviews/:id                  -- auth required, owner only
 ```
 src/app/
   core/
-    auth/           -- AuthService, AuthGuard, token interceptor
+    auth/           -- AuthService (Firebase Auth), AuthGuard, ID token interceptor
     http/           -- base API service, error interceptor
   features/
     products/       -- product list, product detail page
@@ -111,7 +122,7 @@ src/app/
 
 ```
 src/
-  auth/             -- register, login, refresh, logout
+  auth/             -- Firebase token verification guard, optional user bootstrap
   products/         -- list, detail with aggregated rating
   reviews/          -- CRUD, ownership guard
   common/           -- pipes, guards, interceptors, exceptions

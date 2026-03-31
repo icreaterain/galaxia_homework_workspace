@@ -72,7 +72,7 @@ App runs at `http://localhost:4200`.
 
 - Browse product catalog
 - Read reviews and star ratings for each product
-- Register and log in
+- Sign up and sign in (Firebase Authentication)
 - Submit, edit, or delete your own review (one per product)
 
 ## Running Tests
@@ -98,5 +98,5 @@ cd cloudtalk_homework_fe && npm test
 | Frontend | Angular, TypeScript |
 | Backend | Node.js, TypeScript, (NestJS or Express — see [ADR 003](adr/003-backend-framework.md)) |
 | Database | PostgreSQL |
-| Auth | JWT (access token in memory + httpOnly refresh cookie) |
+| Auth | Firebase Authentication (API verifies Firebase ID tokens) |
 | Local dev | Docker Compose |

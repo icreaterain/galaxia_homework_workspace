@@ -36,7 +36,7 @@ Use `ReactiveFormsModule` for the review submission form. Template-driven forms 
 
 ## Auth State
 
-Store auth state in a dedicated `AuthService`. Expose `isLoggedIn$: Observable<boolean>` and `currentUser$: Observable<User | null>`. Do not read from localStorage directly in components.
+Use **Firebase Authentication** for sign-up, sign-in, and sign-out. Store auth state in a dedicated `AuthService` that wraps Firebase Auth (`onAuthStateChanged`, `signInWithEmailAndPassword`, etc. as appropriate). Expose `isLoggedIn$` / `currentUser$` (or signals) derived from Firebase. For API calls, attach the current **Firebase ID token** via an HTTP interceptor (`getIdToken()`). Do not persist credentials in `localStorage` manually; Firebase handles token persistence per its SDK defaults.
 
 ## Error Display
 

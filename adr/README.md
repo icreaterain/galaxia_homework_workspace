@@ -19,6 +19,7 @@ Copy `000-template.md` when adding a new entry.
 | [003](003-backend-framework.md) | NestJS vs Express | Under discussion |
 | [004](004-postgresql.md) | PostgreSQL as the database | Decided |
 | [005](005-orm.md) | ORM choice | Under discussion |
-| [006](006-jwt-auth.md) | JWT authentication strategy | Decided |
+| [006](006-jwt-auth.md) | JWT authentication strategy (historical) | Superseded by 012 |
 | [007](007-one-review-per-user.md) | One review per user per product | Decided |
 | [008](008-docker-compose.md) | Docker Compose for local dev | Decided |
+| [012](012-firebase-authentication.md) | Firebase Authentication as identity provider | Decided |

@@ -115,5 +115,5 @@ When a feature requires authentication:
 ## Common Mistakes to Avoid
 
 - Forgetting to set `Content-Type: application/json` in FE HTTP calls (Angular's `HttpClient` does this automatically — don't override it)
-- Returning the full user object from BE endpoints — strip `password` hash before responding
+- Returning sensitive fields from BE user DTOs — never expose secrets; with Firebase Auth, passwords are not stored in Postgres ([ADR 012](../../../adr/012-firebase-authentication.md))
 - Not handling the 409 Conflict case in the FE when a user tries to review a product twice

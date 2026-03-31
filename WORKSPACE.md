@@ -19,7 +19,7 @@ Users can browse products and submit, edit, delete, and read reviews with rating
 1. Product catalog — listing and detail pages
 2. Review submission — create/edit/delete a review with a star rating and text body
 3. Review aggregation — average rating, review count per product
-4. User authentication — register, login, session management
+4. User authentication — Firebase Authentication (sign-up, sign-in); API verifies Firebase ID tokens
 
 ---
 
@@ -111,7 +111,7 @@ docs(workspace): add database schema section
 | API style | REST |
 | Database | PostgreSQL |
 | ORM | To be decided at implementation start (see ARCHITECTURE.md) |
-| Auth | JWT (access token in memory, refresh token in httpOnly cookie) |
+| Auth | Firebase Authentication (frontend); NestJS verifies Firebase ID tokens ([ADR 012](adr/012-firebase-authentication.md)) |
 | Testing | Jest (BE), Karma/Jest (FE) |
 | Containerization | Docker Compose for local dev |
 
@@ -138,10 +138,15 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the current system overview and [adr/
 
 Both repos use `.env` files. A `.env.example` is committed; `.env` is gitignored.
 
-Key variables:
+Key variables (non-exhaustive; see each repo’s `.env.example`):
+
+**Backend**
 - `DATABASE_URL` — Postgres connection string
-- `JWT_SECRET` — signing secret (never commit a real value)
 - `CORS_ORIGIN` — allowed frontend origin (default: `http://localhost:4200`)
+- Firebase Admin: service account JSON path **or** individual `FIREBASE_PROJECT_ID` + credentials env vars as supported by `firebase-admin` (never commit real keys)
+
+**Frontend**
+- Firebase web app config: `apiKey`, `authDomain`, `projectId`, etc. (from Firebase console; public client config is OK to commit only in `.env.example` with placeholders)
 
 ---
 
