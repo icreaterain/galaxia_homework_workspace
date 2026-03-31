@@ -14,12 +14,15 @@ Copy `000-template.md` when adding a new entry.
 
 | # | Title | Status |
 |---|---|---|
-| [001](001-stack.md) | Node.js + Angular as primary stack | Decided |
-| [002](002-rest-over-graphql.md) | REST over GraphQL | Decided |
-| [003](003-backend-framework.md) | NestJS vs Express | Under discussion |
+| [001](001-stack.md) | TypeScript end-to-end: NestJS + Angular | Decided |
+| [002](002-rest-over-graphql.md) | REST over GraphQL | Superseded by 009 |
+| [003](003-backend-framework.md) | NestJS with Fastify adapter | Decided |
 | [004](004-postgresql.md) | PostgreSQL as the database | Decided |
-| [005](005-orm.md) | ORM choice | Under discussion |
-| [006](006-jwt-auth.md) | JWT authentication strategy (historical) | Superseded by 012 |
+| [005](005-orm.md) | Prisma as the ORM | Decided |
+| [006](006-jwt-auth.md) | Self-managed JWT authentication | Decided |
 | [007](007-one-review-per-user.md) | One review per user per product | Decided |
-| [008](008-docker-compose.md) | Docker Compose for local dev | Decided |
-| [012](012-firebase-authentication.md) | Firebase Authentication as identity provider | Decided |
+| [008](008-docker-compose.md) | Docker Compose for local development | Decided |
+| [009](009-hybrid-rest-graphql.md) | Hybrid REST + GraphQL (CQRS-lite) | Decided |
+| [010](010-two-repo-structure.md) | Two-repository structure (git submodules) | Decided |
+| [011](011-contract-ownership.md) | Contract ownership: OpenAPI + GraphQL SDL | Decided |
+| [012](012-firebase-authentication.md) | Firebase Authentication (superseded) | Superseded by 006 |

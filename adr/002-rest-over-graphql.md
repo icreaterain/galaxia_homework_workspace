@@ -1,22 +1,21 @@
-# 002 — REST over GraphQL
+# 002 — REST over GraphQL (superseded)
 
 **Date:** 2026-03-31
-**Status:** Decided
+**Status:** Superseded by [009 — Hybrid REST + GraphQL](009-hybrid-rest-graphql.md)
 
-## Context
+## Original decision (no longer in force)
 
-The system is straightforward CRUD over two main entities (products, reviews).
+Plain REST API with JSON for all operations.
 
-## Decision
+## Supersession
 
-Plain REST API with JSON.
+The original rationale — that GraphQL adds complexity without meaningful benefit at this
+scale — was revised when we considered the product detail page: a single page composed
+of product info, aggregated ratings, and a paginated, sortable review list. REST would
+require multiple round trips or a custom "include" parameter that re-implements GraphQL
+ad hoc.
 
-## Trade-offs
-
-- No over-fetching protection, but the dataset is small and queries are simple.
-- REST is easier to inspect with curl/Postman, lowering evaluator friction.
-
-## Alternatives considered
-
-GraphQL — would add complexity (resolver setup, schema definition language) without
-meaningful benefit at this scale.
+The system now uses a **hybrid model**: REST for command-oriented writes (auth, review
+mutations) and GraphQL for read-oriented composed views (product queries, paginated
+review lists with aggregates). See [ADR 009](009-hybrid-rest-graphql.md) for the full
+rationale.

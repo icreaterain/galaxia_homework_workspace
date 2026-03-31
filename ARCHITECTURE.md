@@ -11,14 +11,20 @@ For the reasoning behind each choice, see the [ADR log](adr/README.md).
 [Browser]
     │
     ▼
-[Angular SPA :4200] ── Firebase Auth SDK ──▶ [Firebase Authentication]
-    │
-    │  REST + GraphQL, Authorization: Bearer <Firebase ID token>
-    ▼
-[Node.js API :3000]  ── firebase-admin verifyIdToken ──▶  [PostgreSQL :5432]
+[Angular SPA :4200]
+    ├── HttpClient  ──POST/PUT/DELETE──▶  /api/*     [NestJS + Fastify :3000]
+    └── Apollo      ──POST /graphql──▶   /graphql   [Apollo Server]
+                                              │
+                                         Service Layer
+                                              │
+                                         Prisma Client
+                                              │
+                                       [PostgreSQL :5432]
 ```
 
-Identity is externalized to Firebase; the API trusts only tokens it verifies with the Firebase Admin SDK.
+REST handles all command-oriented writes (auth, review mutations).
+GraphQL handles all read-oriented composed views (product queries, paginated reviews with
+aggregates). Both protocols share the same service layer. See [ADR 009](adr/009-hybrid-rest-graphql.md).
 
 ---
 
@@ -26,13 +32,15 @@ Identity is externalized to Firebase; the API trusts only tokens it verifies wit
 
 | Layer | Technology | ADR |
 |---|---|---|
-| Frontend | Angular (TypeScript, standalone components) | [001](adr/001-stack.md) |
-| Backend | Node.js + TypeScript (NestJS or Express — TBD) | [003](adr/003-backend-framework.md) |
-| API style | REST / JSON | [002](adr/002-rest-over-graphql.md) |
-| Database | PostgreSQL | [004](adr/004-postgresql.md) |
-| ORM / DB access | Prisma or TypeORM — TBD | [005](adr/005-orm.md) |
-| Authentication | Firebase Authentication (ID tokens verified by API via Admin SDK) | [012](adr/012-firebase-authentication.md) |
-| Local dev | Docker Compose | [008](adr/008-docker-compose.md) |
+| Frontend | Angular 17+ (standalone components, signals) | [001](adr/001-stack.md) |
+| Frontend styling | Tailwind CSS | — |
+| Frontend GraphQL | Apollo Angular + graphql-codegen | [011](adr/011-contract-ownership.md) |
+| Backend framework | NestJS with Fastify adapter | [003](adr/003-backend-framework.md) |
+| API style | Hybrid REST (`/api/*`) + GraphQL (`/graphql`) | [009](adr/009-hybrid-rest-graphql.md) |
+| ORM | Prisma | [005](adr/005-orm.md) |
+| Database | PostgreSQL 16 | [004](adr/004-postgresql.md) |
+| Authentication | Self-managed JWT (bcrypt + access/refresh tokens) | [006](adr/006-jwt-auth.md) |
+| Local dev | Docker Compose (Postgres only) | [008](adr/008-docker-compose.md) |
 
 ---
 
@@ -41,90 +49,279 @@ Identity is externalized to Firebase; the API trusts only tokens it verifies wit
 ```
 users
   id            UUID PK
-  firebase_uid  TEXT UNIQUE NOT NULL   -- Firebase Auth UID (sub claim)
   email         TEXT UNIQUE NOT NULL
-  display_name  TEXT
+  display_name  TEXT NOT NULL
+  password_hash TEXT NOT NULL           -- bcrypt, cost 12
   role          TEXT NOT NULL DEFAULT 'user'   -- user | admin
   created_at    TIMESTAMPTZ
   updated_at    TIMESTAMPTZ
-  -- No password: credentials live in Firebase only
 
 products
-  id          UUID PK
-  name        TEXT NOT NULL
-  description TEXT
-  image_url   TEXT
-  created_at  TIMESTAMPTZ
+  id            UUID PK
+  name          TEXT NOT NULL
+  description   TEXT
+  image_url     TEXT
+  category      TEXT
+  price         DECIMAL NOT NULL
+  avg_rating    DECIMAL NOT NULL DEFAULT 0   -- denormalized, recalculated on every review write
+  review_count  INT NOT NULL DEFAULT 0       -- denormalized, recalculated on every review write
+  created_at    TIMESTAMPTZ
+  updated_at    TIMESTAMPTZ
 
 reviews
-  id          UUID PK
-  user_id     UUID FK → users.id
-  product_id  UUID FK → products.id
-  rating      SMALLINT NOT NULL      -- CHECK (1..5)
-  body        TEXT
-  created_at  TIMESTAMPTZ
-  updated_at  TIMESTAMPTZ
-  UNIQUE(user_id, product_id)        -- one review per user per product
+  id            UUID PK
+  user_id       UUID FK → users.id NOT NULL
+  product_id    UUID FK → products.id NOT NULL
+  rating        SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5)
+  title         TEXT                         -- optional
+  body          TEXT NOT NULL                -- max 5000 chars
+  status        TEXT NOT NULL DEFAULT 'published'  -- published | flagged | removed
+  created_at    TIMESTAMPTZ
+  updated_at    TIMESTAMPTZ
+  UNIQUE(user_id, product_id)               -- one review per user per product
+
+review_votes  (P1)
+  id            UUID PK
+  review_id     UUID FK → reviews.id NOT NULL
+  user_id       UUID FK → users.id NOT NULL
+  created_at    TIMESTAMPTZ
+  UNIQUE(review_id, user_id)               -- one vote per user per review
 ```
 
-Aggregates (`avg_rating`, `review_count`) are computed on-the-fly via SQL.
-A materialized view or caching layer can be added if performance becomes a concern.
+`avg_rating` and `review_count` are **denormalized** — recalculated inside
+`ReviewsService` in the same transaction as every review write (create/update/delete).
+`ratingDistribution` (1–5 star counts) is computed on-the-fly via `GROUP BY rating`
+only on the product detail page (acceptable cost for a single product).
 
 ---
 
 ## API Surface
 
-Sign-in and sign-up are handled by **Firebase Authentication** in the Angular app (not by the API).
+### REST (`/api/*`)
 
-Protected REST and GraphQL operations require `Authorization: Bearer <Firebase ID token>`.
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | — | Create account |
+| POST | `/api/auth/login` | — | Authenticate; sets httpOnly refresh cookie |
+| POST | `/api/auth/refresh` | refresh cookie | Exchange refresh cookie for new access token |
+| POST | `/api/auth/logout` | — | Clear refresh cookie |
+| POST | `/api/products/:productId/reviews` | JWT | Create review |
+| PUT | `/api/reviews/:id` | JWT (owner) | Update own review |
+| DELETE | `/api/reviews/:id` | JWT (owner) | Delete own review |
+| GET | `/api/health` | — | Liveness check |
+| GET | `/api/health/ready` | — | Readiness check (verifies DB) |
+
+**Response envelope:**
+```json
+{ "data": { ... } }
+{ "error": { "code": "DUPLICATE_REVIEW", "message": "...", "statusCode": 409 } }
+```
+
+### GraphQL (`/graphql`)
+
+```graphql
+type Query {
+  product(id: ID!): Product
+  products(first: Int, after: String, filter: ProductFilterInput): ProductConnection
+  myReviews(first: Int, after: String): ReviewConnection
+}
+
+type Product {
+  id: ID!
+  name: String!
+  description: String
+  imageUrl: String
+  category: String
+  price: Float!
+  avgRating: Float!
+  reviewCount: Int!
+  ratingDistribution: RatingDistribution!
+  reviews(first: Int, after: String, sort: ReviewSort, filterByRating: Int): ReviewConnection
+}
+
+type Review {
+  id: ID!
+  rating: Int!
+  title: String
+  body: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  author: ReviewAuthor!
+  helpfulCount: Int!
+  viewerHasVotedHelpful: Boolean!
+}
+
+type ReviewAuthor {
+  id: ID!
+  displayName: String!
+}
+
+type RatingDistribution {
+  oneStar: Int!
+  twoStar: Int!
+  threeStar: Int!
+  fourStar: Int!
+  fiveStar: Int!
+}
+```
+
+Pagination uses Relay-style cursor connections (`first`/`after`, `edges`/`pageInfo`).
+Cursor encodes the sort key as a base64 opaque string.
+
+---
+
+## Backend Module Structure
 
 ```
-GET    /api/users/me                 -- optional bootstrap: ensure local user row exists (auth required)
--- (or POST /api/users/sync — same purpose; choose one canonical contract at implementation)
+src/
+  main.ts                       # Bootstrap: Fastify adapter, global pipes/filters
+  app.module.ts                 # Root module
+  auth/
+    auth.module.ts
+    auth.controller.ts          # REST: register, login, refresh, logout
+    auth.service.ts             # Bcrypt, JWT signing, refresh token logic
+    strategies/
+      jwt.strategy.ts
+      jwt-refresh.strategy.ts
+    guards/
+      jwt-auth.guard.ts
+      gql-auth.guard.ts
+    dto/
+      register.dto.ts
+      login.dto.ts
+  products/
+    products.module.ts
+    products.resolver.ts        # GraphQL: product, products queries
+    products.service.ts
+    models/
+      product.model.ts
+      product-connection.model.ts
+      product-filter.input.ts
+  reviews/
+    reviews.module.ts
+    reviews.controller.ts       # REST: create, update, delete
+    reviews.resolver.ts         # GraphQL: reviews field, myReviews query
+    reviews.service.ts          # Business logic, aggregate recalc
+    dto/
+      create-review.dto.ts
+      update-review.dto.ts
+    models/
+      review.model.ts
+      review-connection.model.ts
+      review-sort.enum.ts
+  common/
+    decorators/
+      current-user.decorator.ts
+    filters/
+      http-exception.filter.ts
+      gql-exception.filter.ts
+    interceptors/
+      logging.interceptor.ts
+    middleware/
+      correlation-id.middleware.ts
+    scalars/
+      date-time.scalar.ts
+  database/
+    prisma.module.ts
+    prisma.service.ts
+  health/
+    health.module.ts
+    health.controller.ts
+  config/
+    configuration.ts
+```
 
-GET    /products                     -- public
-GET    /products/:id                 -- public, includes avg_rating + review_count
-GET    /products/:id/reviews         -- public
-POST   /products/:id/reviews         -- auth required (Firebase ID token)
-PUT    /reviews/:id                  -- auth required, owner only
-DELETE /reviews/:id                  -- auth required, owner only
+---
+
+## Frontend Structure
+
+```
+src/app/
+  core/
+    auth/
+      auth.service.ts           # Signals: isLoggedIn, currentUser; token management
+      auth.guard.ts
+      auth.interceptor.ts       # Attaches JWT to REST requests
+    graphql/
+      graphql.provider.ts       # Apollo Client configuration
+    http/
+      error.interceptor.ts      # 401 → silent token refresh
+  features/
+    products/
+      product-list.component.ts
+      product-detail.component.ts
+      graphql/
+        product.queries.ts
+    reviews/
+      review-list.component.ts
+      review-form.component.ts
+      review-card.component.ts
+      graphql/
+        review.queries.ts
+      review-command.service.ts  # REST: create/update/delete
+    auth/
+      login.component.ts
+      register.component.ts
+  shared/
+    components/
+      star-rating/
+        star-rating.component.ts
+      loading-spinner.component.ts
+      error-message.component.ts
+      pagination.component.ts
+    models/                     # TypeScript interfaces for REST responses
+    pipes/
+      time-ago.pipe.ts
+  generated/                    # graphql-codegen output — gitignored; run `npm run codegen`
 ```
 
 ---
 
 ## Key Constraints
 
-- One review per user per product — enforced by DB unique constraint ([ADR 007](adr/007-one-review-per-user.md))
+- One review per user per product — DB unique constraint + 409 Conflict response ([ADR 007](adr/007-one-review-per-user.md))
 - Reading reviews is public; writing requires authentication
-- Identity is managed by Firebase; the API verifies Firebase ID tokens server-side and never stores passwords
-- Firebase ID tokens are short-lived; the Angular app uses the Firebase client SDK to refresh tokens; attach the current ID token to API calls (typically via an HTTP interceptor)
+- `avg_rating` and `review_count` are kept consistent by `ReviewsService` within the same transaction
+- REST endpoints own writes; GraphQL resolvers own reads — never cross the boundary
+- The backend is the single source of truth for all API contracts ([ADR 011](adr/011-contract-ownership.md))
 
 ---
 
-## Frontend Structure (planned)
+## Environment Variables
+
+### Backend (`.env`)
 
 ```
-src/app/
-  core/
-    auth/           -- AuthService (Firebase Auth), AuthGuard, ID token interceptor
-    http/           -- base API service, error interceptor
-  features/
-    products/       -- product list, product detail page
-    reviews/        -- review form, review card, review list
-  shared/
-    components/     -- star-rating, error-message, loading-spinner
-    models/         -- Review, Product, User interfaces
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
+JWT_SECRET=change-me-in-production
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
+CORS_ORIGIN=http://localhost:4200
+PORT=3000
+NODE_ENV=development
+```
+
+### Frontend (`.env`)
+
+```
+API_URL=http://localhost:3000/api
+GRAPHQL_URL=http://localhost:3000/graphql
 ```
 
 ---
 
-## Backend Structure (planned)
+## Implementation Status
 
-```
-src/
-  auth/             -- Firebase token verification guard, optional user bootstrap
-  products/         -- list, detail with aggregated rating
-  reviews/          -- CRUD, ownership guard
-  common/           -- pipes, guards, interceptors, exceptions
-  database/         -- DB module, migrations
-```
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Docker Compose, rewrite ADRs, update docs | **Complete** |
+| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | Pending |
+| 2 | Auth module (register, login, refresh, logout, guards) | Pending |
+| 3 | GraphQL setup + product queries with pagination | Pending |
+| 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | Pending |
+| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | Pending |
+| 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | Pending |
+| 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | Pending |
+| 8 | Frontend features (product list/detail, review list/form/card) | Pending |
+| 9 | CI/CD pipelines (GitHub Actions, quality gates) | Pending |
+| 10 | Documentation finalization (READMEs, ADRs, trade-offs) | Pending |

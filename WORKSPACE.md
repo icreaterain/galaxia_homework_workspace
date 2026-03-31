@@ -1,65 +1,100 @@
 # CloudTalk Homework — Agentic Workspace
 
 This document is the primary context source for AI agents working in this repository.
-It describes the project purpose, repository structure, operating conventions, and everything
-that cannot be inferred from the code itself.
+It describes the project purpose, repository structure, operating conventions, and
+everything that cannot be inferred from the code itself.
+
+For the full architectural picture, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For decision rationale, see [adr/README.md](adr/README.md).
+For the agent entry point, see [AGENTS.md](AGENTS.md).
 
 ---
 
 ## What This Project Is
 
-A **product review system** (similar to Amazon or Alza), built as a full-stack application.
-Users can browse products and submit, edit, delete, and read reviews with ratings.
+A **product review system** (similar to Amazon or Alza), built as a full-stack
+TypeScript application across two repositories.
+
+Users browse a seeded product catalog, register accounts, and submit star-rated text
+reviews. The backend exposes a hybrid REST + GraphQL API. The frontend is an Angular SPA
+consuming both protocols.
 
 **User groups:**
-- Anonymous visitors — browse products and read reviews
-- Authenticated users — submit and manage their own reviews
+- Anonymous visitors — browse products, read reviews
+- Authenticated users — create, edit, and delete their own reviews
+- Admin (seeded) — moderate review status (P2)
 
 **Core functional areas:**
-1. Product catalog — listing and detail pages
-2. Review submission — create/edit/delete a review with a star rating and text body
-3. Review aggregation — average rating, review count per product
-4. User authentication — Firebase Authentication (sign-up, sign-in); API verifies Firebase ID tokens
+1. Product catalog — list page and detail page with aggregated ratings
+2. Review CRUD — create/edit/delete a review with 1–5 star rating and text body
+3. Review aggregation — denormalized `avg_rating` + `review_count` per product
+4. Authentication — self-managed JWT (register, login, refresh, logout)
 
 ---
 
 ## Repository Structure
 
-This workspace coordinates two repositories, linked as **git submodules** under the workspace root:
+This workspace coordinates two repositories linked as **git submodules**:
 
 | Path | Repository | Role | Stack |
 |---|---|---|---|
-| `cloudtalk_homework_fe/` | [`cloudtalk_homework_fe`](https://github.com/icreaterain/cloudtalk_homework_fe) | Frontend SPA | Angular (TypeScript) |
-| `cloudtalk_homework_be/` | [`cloudtalk_homework_be`](https://github.com/icreaterain/cloudtalk_homework_be) | REST API + persistence | Node.js (TypeScript) |
+| `cloudtalk_homework_be/` | `cloudtalk_homework_be` | NestJS API + Prisma + PostgreSQL | Node.js + TypeScript |
+| `cloudtalk_homework_fe/` | `cloudtalk_homework_fe` | Angular SPA | Angular + TypeScript |
 
-After cloning the workspace, run `./scripts/setup.sh` to initialize submodules and install npm dependencies (when `package.json` exists in each repo).
+The workspace root holds shared infrastructure:
 
-**First-time workspace maintainers** (empty FE/BE remotes cannot be submodules until they have a commit):
+| Path | Purpose |
+|---|---|
+| `docker-compose.yml` | Postgres 16-alpine for local dev |
+| `scripts/` | setup.sh, submodule helpers |
+| `adr/` | Architecture Decision Records |
+| `ARCHITECTURE.md` | Current system state (stack, schema, API) |
+| `WORKSPACE.md` | This file — agent onboarding |
+| `AGENTS.md` | Agent entry point and implementation phases |
 
-1. `./scripts/bootstrap-empty-remotes.sh` — creates a README + initial commit on each remote (requires push access)
-2. `./scripts/add-submodules.sh` — registers both repos as submodules and creates `.gitmodules`
-3. Commit the submodule registration in the workspace repo
+After cloning: `git clone --recurse-submodules <url>` then `./scripts/setup.sh`.
 
-### Dependency Direction
+---
 
-```
-[Browser]
-    │
-    ▼
-[Angular FE]  ──HTTP──▶  [Node.js BE]  ──▶  [Database]
-```
-
-The frontend depends on the backend API contract. When the API contract changes:
-1. Update and stabilize the BE endpoint first
-2. Then update the FE to consume the new shape
-
-### Local Port Conventions
+## Local Port Conventions
 
 | Service | Default Port |
 |---|---|
 | Angular dev server | 4200 |
-| Node.js API | 3000 |
-| Database (Postgres) | 5432 |
+| NestJS API (REST + GraphQL) | 3000 |
+| PostgreSQL | 5432 |
+
+REST endpoints: `http://localhost:3000/api/*`
+GraphQL endpoint: `http://localhost:3000/graphql`
+GraphQL Playground: `http://localhost:3000/graphql` (in development mode)
+
+---
+
+## First-Time Setup
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules <repo-url>
+cd cloudtalk_homework
+
+# Start database
+docker compose up -d
+
+# Backend
+cd cloudtalk_homework_be
+cp .env.example .env
+npm install
+npx prisma migrate dev   # creates schema + runs seed
+npm run dev              # http://localhost:3000
+
+# Frontend (separate terminal)
+cd cloudtalk_homework_fe
+cp .env.example .env
+npm install
+npm start                # http://localhost:4200
+```
+
+Demo credentials (seeded): `user@demo.com / password123`, `admin@demo.com / password123`
 
 ---
 
@@ -69,20 +104,23 @@ The frontend depends on the backend API contract. When the API contract changes:
 
 Format: `<type>(<scope>): <subject>`
 
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`
+Types: `feat` `fix` `refactor` `test` `docs` `chore` `perf`
 
-Scope examples: `auth`, `reviews`, `products`, `db`, `api`, `fe`
+BE scopes: `auth` `reviews` `products` `db` `api` `health` `common`
+FE scopes: `auth` `reviews` `products` `shared` `graphql` `fe`
+Workspace scopes: `workspace` `docs` `adr`
 
 ```
-feat(reviews): add star rating to review submission form
-fix(api): correct 404 response when product not found
-docs(workspace): add database schema section
+feat(reviews): add helpful votes endpoint
+fix(auth): correct refresh token rotation on concurrent requests
+docs(adr): add ADR 009 hybrid REST+GraphQL
+chore(workspace): add docker-compose.yml
 ```
 
 ### Branching
 
 - `main` — production-ready code
-- `feat/<ticket-or-description>` — feature branches
+- `feat/<description>` — feature branches
 - `fix/<description>` — bug fix branches
 
 ### File Naming
@@ -90,117 +128,153 @@ docs(workspace): add database schema section
 | Layer | Convention | Example |
 |---|---|---|
 | Angular components | `kebab-case.component.ts` | `product-card.component.ts` |
-| Angular services | `kebab-case.service.ts` | `review.service.ts` |
-| BE route handlers | `kebab-case.controller.ts` | `reviews.controller.ts` |
-| BE business logic | `kebab-case.service.ts` | `reviews.service.ts` |
-| DB migrations | `YYYYMMDDHHMMSS_description.ts` | `20260401120000_create_reviews.ts` |
+| Angular services | `kebab-case.service.ts` | `review-command.service.ts` |
+| Angular guards | `kebab-case.guard.ts` | `auth.guard.ts` |
+| Angular interceptors | `kebab-case.interceptor.ts` | `auth.interceptor.ts` |
+| GQL query documents | `kebab-case.queries.ts` | `review.queries.ts` |
+| BE controllers | `kebab-case.controller.ts` | `reviews.controller.ts` |
+| BE services | `kebab-case.service.ts` | `reviews.service.ts` |
+| BE resolvers | `kebab-case.resolver.ts` | `reviews.resolver.ts` |
+| BE DTOs | `kebab-case.dto.ts` | `create-review.dto.ts` |
+| BE GraphQL models | `kebab-case.model.ts` | `review.model.ts` |
+| BE guards | `kebab-case.guard.ts` | `jwt-auth.guard.ts` |
+| DB migrations | auto-generated by Prisma | `20260401120000_create_reviews` |
 
 ### Never Edit
 
-- `dist/` — compiled output in both repos
-- Auto-generated migration snapshots (if using TypeORM/Prisma auto-generation)
+- `dist/` in either repo — compiled output
+- `src/generated/` in the FE repo — graphql-codegen output; gitignored, generated in CI and locally via `npm run codegen`
+- `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
 
 ---
 
-## Technology Decisions (Rationale in ARCHITECTURE.md)
+## Technology Decisions
 
-| Concern | Choice |
-|---|---|
-| Frontend framework | Angular |
-| Backend runtime | Node.js + TypeScript |
-| API style | REST |
-| Database | PostgreSQL |
-| ORM | To be decided at implementation start (see ARCHITECTURE.md) |
-| Auth | Firebase Authentication (frontend); NestJS verifies Firebase ID tokens ([ADR 012](adr/012-firebase-authentication.md)) |
-| Testing | Jest (BE), Karma/Jest (FE) |
-| Containerization | Docker Compose for local dev |
-
----
-
-## What the Code Won't Tell You
-
-### External Dependencies
-
-- No third-party review aggregation service — ratings are computed in-database
-- No CDN for product images in the MVP — images are placeholder URLs
-
-### Known Constraints
-
-- The assignment asks for easy setup: `docker compose up` should be sufficient to run the full stack
-- Authentication is required to post a review, but not to read reviews (public read)
-- A user may only have **one review per product** (enforced at DB level with a unique constraint)
-
-### Architecture Decisions
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the current system overview and [adr/](adr/README.md) for the full reasoning behind key choices.
-
-### Environment Configuration
-
-Both repos use `.env` files. A `.env.example` is committed; `.env` is gitignored.
-
-Key variables (non-exhaustive; see each repo’s `.env.example`):
-
-**Backend**
-- `DATABASE_URL` — Postgres connection string
-- `CORS_ORIGIN` — allowed frontend origin (default: `http://localhost:4200`)
-- Firebase Admin: service account JSON path **or** individual `FIREBASE_PROJECT_ID` + credentials env vars as supported by `firebase-admin` (never commit real keys)
-
-**Frontend**
-- Firebase web app config: `apiKey`, `authDomain`, `projectId`, etc. (from Firebase console; public client config is OK to commit only in `.env.example` with placeholders)
+| Concern | Choice | ADR |
+|---|---|---|
+| Frontend framework | Angular 17+ (standalone, signals) | [001](adr/001-stack.md) |
+| Frontend styling | Tailwind CSS | — |
+| Frontend GraphQL | Apollo Angular + graphql-codegen | [011](adr/011-contract-ownership.md) |
+| Backend framework | NestJS with Fastify adapter | [003](adr/003-backend-framework.md) |
+| API style | Hybrid REST + GraphQL | [009](adr/009-hybrid-rest-graphql.md) |
+| ORM | Prisma | [005](adr/005-orm.md) |
+| Database | PostgreSQL 16 | [004](adr/004-postgresql.md) |
+| Authentication | Self-managed JWT (bcrypt + httpOnly cookie) | [006](adr/006-jwt-auth.md) |
+| Local dev | Docker Compose (Postgres only) | [008](adr/008-docker-compose.md) |
+| Testing | Jest (both repos) | — |
+| Repo structure | Two repos as git submodules | [010](adr/010-two-repo-structure.md) |
+| Contract ownership | OpenAPI + GraphQL SDL from backend | [011](adr/011-contract-ownership.md) |
 
 ---
 
-## Development Workflow
+## GraphQL Conventions
 
-### First-Time Setup
+- Schema generated **code-first** from NestJS decorators (`@ObjectType`, `@Field`,
+  `@InputType`, `@Resolver`) — `autoSchemaFile: true` in `GraphQLModule.forRoot`.
+- Pagination uses **Relay-style cursor connections** (`first`/`after`, `edges`/`pageInfo`).
+- All GraphQL read paths live in resolvers; all write paths live in REST controllers.
+  Never add mutations to the GraphQL schema (the hybrid split is intentional).
+- `@CurrentUser()` decorator works in both REST (`req.user`) and GraphQL
+  (`GqlExecutionContext`) contexts.
+- The `schema.graphql` file is the contract artefact — export with `npm run schema:export`
+  in the BE repo, then regenerate FE types with `npm run codegen` in the FE repo.
+
+### GraphQL Codegen Workflow
 
 ```bash
-# From workspace root (after clone — use --recurse-submodules, or run ./scripts/setup.sh)
-./scripts/setup.sh
+# In cloudtalk_homework_be/
+npm run schema:export   # writes schema.graphql
 
-docker compose up -d          # starts Postgres (when compose file exists)
-cd cloudtalk_homework_be && cp .env.example .env && npm run migrate && npm run dev
-cd cloudtalk_homework_fe && npm start   # or: ng serve
+# In cloudtalk_homework_fe/
+npm run codegen         # reads schema.graphql, writes src/generated/
 ```
 
-If submodules were not initialized by the clone, run `./scripts/setup.sh` first (or `git submodule update --init --recursive`).
+`src/generated/` is **gitignored**. CI runs `npm run codegen` before `tsc` and tests.
 
-### Running Tests
+---
+
+## npm Script Conventions
+
+Both repos use these standardized script names:
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Start dev server with watch mode (BE only) |
+| `npm start` | Start dev server (FE: `ng serve`) |
+| `npm run build` | Production build |
+| `npm test` | Run unit tests (Jest) |
+| `npm run test:e2e` | Run integration/e2e tests (BE only) |
+| `npm run lint` | ESLint check |
+| `npm run format` | Prettier format (write) |
+| `npm run format:check` | Prettier check (no write, for CI) |
+| `npm run codegen` | Run graphql-codegen (FE only) |
+| `npm run schema:export` | Export schema.graphql (BE only) |
+| `npm run migrate` | `prisma migrate dev` (BE only) |
+| `npm run seed` | `prisma db seed` (BE only) |
+
+---
+
+## Running Tests
 
 ```bash
-# BE
+# Backend — unit tests
 cd cloudtalk_homework_be && npm test
 
-# FE
+# Backend — e2e (requires running Postgres)
+cd cloudtalk_homework_be && npm run test:e2e
+
+# Frontend — unit tests
 cd cloudtalk_homework_fe && npm test
 ```
 
-### Quality Gates
+---
 
-- TypeScript must compile with zero errors before committing
-- ESLint must pass (configured in both repos)
-- All tests must pass before merging to `main`
+## Quality Gates
+
+Before any commit:
+- `npx tsc --noEmit` — zero type errors
+- `npm run lint` — zero ESLint errors
+- `npm test` — all tests pass
+
+In CI (GitHub Actions):
+- lint + typecheck + unit tests (both repos)
+- e2e tests against Postgres service container (BE only)
+- schema freshness: `schema.graphql` must match backend output
+- codegen runs before tsc: `npm run codegen` is the first FE CI step, generating `src/generated/` from `schema.graphql`
 
 ---
 
 ## Cross-Repo Change Protocol
 
-When a change touches both repos (e.g., a new API field):
+When an API contract changes (new field, renamed type, new endpoint):
 
-1. Design the API contract change (document in ARCHITECTURE.md if significant)
-2. Implement and merge the BE change first
-3. Update FE to consume the new contract
-4. Coordinate commits with matching messages referencing the same feature scope
+1. Implement the change in `cloudtalk_homework_be/` and merge to `main`
+2. Run `npm run schema:export` in the BE — commit the updated `schema.graphql`
+3. Implement the FE change — CI will run `npm run codegen` against the new schema automatically
+4. Merge the FE change to `main`
 
-See skill: `.cursor/skills/cross-repo-change/SKILL.md`
+Never merge a FE change that depends on an unmerged BE change.
+
+See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
+
+---
+
+## External Dependencies
+
+- **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
+- **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
+- **No CDN** — product images use placeholder URLs in MVP
 
 ---
 
 ## Agent Operating Guidelines
 
 - Prefer editing existing files over creating new ones
-- Follow the commit message format strictly — commit messages are part of the documentation
-- When adding a new domain feature, read `.cursor/skills/add-review-feature/SKILL.md` first
-- After any significant architectural decision, update ARCHITECTURE.md
-- After any change to repo structure, ports, env vars, or conventions, update this file
-- Do not generate placeholder lorem ipsum content — use realistic review/product data
+- Follow the commit message format strictly — messages are part of the documentation
+- Work only in the submodule that owns the concern you are changing
+- Never write backend logic in the frontend repo or vice versa
+- When adding a new domain feature, read `.cursor/skills/add-review-feature/SKILL.md`
+- When an API contract changes, read `.cursor/skills/cross-repo-change/SKILL.md`
+- After any significant architectural decision, add an ADR and update `ARCHITECTURE.md`
+- After any change to structure, ports, env vars, or conventions, update this file
+- Do not generate placeholder lorem ipsum — use realistic review/product data
