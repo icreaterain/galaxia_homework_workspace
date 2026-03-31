@@ -26,7 +26,7 @@ git submodule update --init --recursive
 ./scripts/setup.sh
 ```
 
-`setup.sh` syncs submodules and runs `npm install` in each repo when a `package.json` is present.
+`setup.sh` syncs submodules and runs `pnpm install` in each repo when a `package.json` is present.
 
 ### Registering submodules (maintainers, first time)
 
@@ -40,6 +40,7 @@ Git cannot check out a submodule until the remote has at least one commit. If `c
 
 ### Prerequisites
 - Node.js 20+
+- [pnpm](https://pnpm.io/installation) 10+ (enable via [Corepack](https://nodejs.org/api/corepack.html) using the `packageManager` field in each repo’s `package.json`)
 - Docker Desktop
 
 ### 1. Start the database
@@ -53,8 +54,8 @@ docker compose up -d
 ```bash
 cd cloudtalk_homework_be
 cp .env.example .env        # edit if needed
-npm run migrate
-npm run dev
+pnpm run migrate
+pnpm run dev
 ```
 
 API runs at `http://localhost:3000`.
@@ -63,7 +64,7 @@ API runs at `http://localhost:3000`.
 
 ```bash
 cd cloudtalk_homework_fe
-npm start
+pnpm start
 ```
 
 App runs at `http://localhost:4200`.
@@ -79,10 +80,10 @@ App runs at `http://localhost:4200`.
 
 ```bash
 # Backend
-cd cloudtalk_homework_be && npm test
+cd cloudtalk_homework_be && pnpm test
 
 # Frontend
-cd cloudtalk_homework_fe && npm test
+cd cloudtalk_homework_fe && pnpm test
 ```
 
 ## Documentation

@@ -18,14 +18,14 @@ where the schema is the primary contract surface.
 
 - The backend uses `@nestjs/graphql` in **code-first** mode (`autoSchemaFile: true`).
   The schema is auto-generated from TypeScript decorators at build time.
-- A `npm run schema:export` script in the BE repo writes the canonical `schema.graphql`
+- A `pnpm run schema:export` script in the BE repo writes the canonical `schema.graphql`
   file (committed to the BE repo).
 - `src/generated/` is **gitignored** in the FE repo. The file is never committed.
 - In FE CI, codegen runs as a build step before `tsc` and the test runner:
   1. Check out the workspace (BE submodule brings `schema.graphql`)
-  2. `npm run codegen` — generates `src/generated/` from `schema.graphql`
-  3. `npx tsc --noEmit`, `npm run lint`, `npm test` — all run against fresh generated types
-- Local dev: developers run `npm run codegen` once after cloning, and again whenever
+  2. `pnpm run codegen` — generates `src/generated/` from `schema.graphql`
+  3. `pnpm exec tsc --noEmit`, `pnpm run lint`, `pnpm test` — all run against fresh generated types
+- Local dev: developers run `pnpm run codegen` once after cloning, and again whenever
   `schema.graphql` changes. The codegen config points to `schema.graphql` via the
   relative workspace path (`../cloudtalk_homework_be/schema.graphql`), so it never
   requires the backend server to be running.
@@ -43,8 +43,8 @@ where the schema is the primary contract surface.
 
 When an API contract changes:
 1. Implement the change in `cloudtalk_homework_be/` and merge to `main`.
-2. Run `npm run schema:export` — commit the updated `schema.graphql` to the BE repo.
-3. Implement the FE change; CI will run `npm run codegen` against the new schema automatically.
+2. Run `pnpm run schema:export` — commit the updated `schema.graphql` to the BE repo.
+3. Implement the FE change; CI will run `pnpm run codegen` against the new schema automatically.
 4. Merge the FE change to `main`.
 
 Never merge a FE change that depends on an unmerged BE change.
@@ -66,7 +66,7 @@ Never merge a FE change that depends on an unmerged BE change.
 - **Commit `src/generated/` to the FE repo:** Avoids the CI codegen step but introduces
   stale-generated-file bugs and pollutes git history with machine-generated churn.
   Rejected in favour of generating in CI.
-- **Shared npm package for types:** Eliminates the codegen step but adds a versioning
+- **Shared package on the npm registry for types:** Eliminates the codegen step but adds a versioning
   and publish workflow for an internal package. Overkill for two repos.
 - **Runtime introspection against a live backend:** FE CI would need the backend running
   as a service container. More complex and slower than reading a committed schema file.

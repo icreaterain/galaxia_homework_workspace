@@ -15,19 +15,19 @@ else
   echo "    If this is the first time, run: ./scripts/bootstrap-empty-remotes.sh && ./scripts/add-submodules.sh"
 fi
 
-install_npm() {
+install_pnpm() {
   local dir="$1"
   [[ -d "$dir" ]] || return 0
   if [[ -f "$dir/package.json" ]]; then
-    echo "==> npm install in $dir"
-    (cd "$dir" && npm install)
+    echo "==> pnpm install in $dir"
+    (cd "$dir" && pnpm install)
   else
-    echo "==> $dir: no package.json yet — skipping npm install"
+    echo "==> $dir: no package.json yet — skipping pnpm install"
   fi
 }
 
-install_npm "cloudtalk_homework_be"
-install_npm "cloudtalk_homework_fe"
+install_pnpm "cloudtalk_homework_be"
+install_pnpm "cloudtalk_homework_fe"
 
 if [[ -f "$ROOT/docker-compose.yml" ]] || [[ -f "$ROOT/compose.yml" ]]; then
   echo "==> Docker Compose file present — not starting automatically."

@@ -172,10 +172,23 @@ Cursor encodes the sort key as a base64 opaque string.
 
 ## Backend Module Structure
 
+> **Phase 1 implemented** (currently on disk): `main.ts`, `app.module.ts`, `config/`, `database/`, `health/`.
+> Remaining modules (`auth/`, `products/`, `reviews/`, `common/`) are the planned target — added in Phases 2–5.
+
 ```
 src/
-  main.ts                       # Bootstrap: Fastify adapter, global pipes/filters
-  app.module.ts                 # Root module
+  main.ts                       # Bootstrap: Fastify adapter, ValidationPipe, CORS, /api prefix
+  app.module.ts                 # Root module — ConfigModule (global), PrismaModule, HealthModule
+  config/
+    configuration.ts            # Typed AppConfig + Joi validation schema; .env + .env.local loaded
+  database/
+    prisma.module.ts            # @Global() module
+    prisma.service.ts           # Extends PrismaClient; onModuleInit/Destroy lifecycle
+  health/
+    health.module.ts
+    health.controller.ts        # GET /api/health (liveness) + GET /api/health/ready (readiness)
+
+  # --- Phases 2–5 (not yet implemented) ---
   auth/
     auth.module.ts
     auth.controller.ts          # REST: register, login, refresh, logout
@@ -221,14 +234,6 @@ src/
       correlation-id.middleware.ts
     scalars/
       date-time.scalar.ts
-  database/
-    prisma.module.ts
-    prisma.service.ts
-  health/
-    health.module.ts
-    health.controller.ts
-  config/
-    configuration.ts
 ```
 
 ---
@@ -272,7 +277,7 @@ src/app/
     models/                     # TypeScript interfaces for REST responses
     pipes/
       time-ago.pipe.ts
-  generated/                    # graphql-codegen output — gitignored; run `npm run codegen`
+  generated/                    # graphql-codegen output — gitignored; run `pnpm run codegen`
 ```
 
 ---
@@ -289,10 +294,13 @@ src/app/
 
 ## Environment Variables
 
-### Backend (`.env`)
+### Backend (`.env` + optional `.env.local`)
+
+`.env` holds defaults (committed via `.env.example`). `.env.local` holds machine-specific overrides (gitignored) — e.g. Supabase URLs. Nest and all Prisma scripts load both; `.env.local` wins for duplicate keys.
 
 ```
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
 JWT_SECRET=change-me-in-production
 JWT_ACCESS_EXPIRY=15m
 JWT_REFRESH_EXPIRY=7d
@@ -300,6 +308,8 @@ CORS_ORIGIN=http://localhost:4200
 PORT=3000
 NODE_ENV=development
 ```
+
+`DIRECT_URL` is required by `prisma/schema.prisma` (`directUrl = env("DIRECT_URL")`). For local Docker Postgres set it to the same value as `DATABASE_URL`. For Supabase, `DATABASE_URL` = pooled (PgBouncer, port 6543) and `DIRECT_URL` = direct Postgres (port 5432).
 
 ### Frontend (`.env`)
 
@@ -315,7 +325,7 @@ GRAPHQL_URL=http://localhost:3000/graphql
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Docker Compose, rewrite ADRs, update docs | **Complete** |
-| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | Pending |
+| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **Complete** |
 | 2 | Auth module (register, login, refresh, logout, guards) | Pending |
 | 3 | GraphQL setup + product queries with pagination | Pending |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | Pending |

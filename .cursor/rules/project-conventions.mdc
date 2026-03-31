@@ -41,13 +41,15 @@ docs(adr): add ADR 009 hybrid REST+GraphQL
 ## Never Edit
 
 - `dist/` directories in either repo
-- `src/generated/` in the FE repo — gitignored; run `npm run codegen` locally and in CI
+- `src/generated/` in the FE repo — gitignored; run `pnpm run codegen` locally and in CI
 - `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
 
 ## Environment Variables
 
-- `.env.example` is committed, `.env` is gitignored
-- Never commit real secrets — use placeholder values in examples
+- `.env.example` is committed; `.env` and `.env.local` are gitignored
+- `.env.local` overrides `.env` for the same key (machine-specific values, e.g. Supabase URLs)
+- Nest's `ConfigModule` loads both files; Prisma scripts use `dotenv-cli` with `-e .env -e .env.local`
+- Never commit real secrets — use placeholder values in `.env.example`
 
 ## API Split — Hybrid REST + GraphQL
 
@@ -65,8 +67,8 @@ GraphQL (`/graphql`) owns all **reads**:
 
 - Schema generated **code-first** from NestJS decorators; never edit `schema.graphql` manually
 - Pagination: Relay cursor connections (`first`/`after`, `edges`/`pageInfo`) — no offset pagination
-- After schema changes: run `npm run schema:export` (BE) then `npm run codegen` (FE)
-- `src/generated/` is **gitignored** — generated in CI (`npm run codegen` runs before tsc) and locally after clone
+- After schema changes: run `pnpm run schema:export` (BE) then `pnpm run codegen` (FE)
+- `src/generated/` is **gitignored** — generated in CI (`pnpm run codegen` runs before tsc) and locally after clone
 
 ## TypeScript
 

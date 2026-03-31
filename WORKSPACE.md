@@ -72,6 +72,8 @@ GraphQL Playground: `http://localhost:3000/graphql` (in development mode)
 
 ## First-Time Setup
 
+Use [pnpm](https://pnpm.io/) for installs and scripts (`corepack enable pnpm` on Node 20+).
+
 ```bash
 # Clone with submodules
 git clone --recurse-submodules <repo-url>
@@ -83,15 +85,16 @@ docker compose up -d
 # Backend
 cd cloudtalk_homework_be
 cp .env.example .env
-npm install
-npx prisma migrate dev   # creates schema + runs seed
-npm run dev              # http://localhost:3000
+# Optional: create .env.local with overrides (e.g. Supabase URLs) — gitignored, wins over .env
+pnpm install             # also runs prisma generate via postinstall
+pnpm run migrate         # prisma migrate dev — creates schema + runs seed
+pnpm run dev             # http://localhost:3000
 
 # Frontend (separate terminal)
 cd cloudtalk_homework_fe
 cp .env.example .env
-npm install
-npm start                # http://localhost:4200
+pnpm install
+pnpm start               # http://localhost:4200
 ```
 
 Demo credentials (seeded): `user@demo.com / password123`, `admin@demo.com / password123`
@@ -143,7 +146,7 @@ chore(workspace): add docker-compose.yml
 ### Never Edit
 
 - `dist/` in either repo — compiled output
-- `src/generated/` in the FE repo — graphql-codegen output; gitignored, generated in CI and locally via `npm run codegen`
+- `src/generated/` in the FE repo — graphql-codegen output; gitignored, generated in CI and locally via `pnpm run codegen`
 - `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
 
 ---
@@ -176,41 +179,42 @@ chore(workspace): add docker-compose.yml
   Never add mutations to the GraphQL schema (the hybrid split is intentional).
 - `@CurrentUser()` decorator works in both REST (`req.user`) and GraphQL
   (`GqlExecutionContext`) contexts.
-- The `schema.graphql` file is the contract artefact — export with `npm run schema:export`
-  in the BE repo, then regenerate FE types with `npm run codegen` in the FE repo.
+- The `schema.graphql` file is the contract artefact — export with `pnpm run schema:export`
+  in the BE repo, then regenerate FE types with `pnpm run codegen` in the FE repo.
 
 ### GraphQL Codegen Workflow
 
 ```bash
 # In cloudtalk_homework_be/
-npm run schema:export   # writes schema.graphql
+pnpm run schema:export   # writes schema.graphql
 
 # In cloudtalk_homework_fe/
-npm run codegen         # reads schema.graphql, writes src/generated/
+pnpm run codegen         # reads schema.graphql, writes src/generated/
 ```
 
-`src/generated/` is **gitignored**. CI runs `npm run codegen` before `tsc` and tests.
+`src/generated/` is **gitignored**. CI runs `pnpm run codegen` before `tsc` and tests.
 
 ---
 
-## npm Script Conventions
+## pnpm script conventions
 
-Both repos use these standardized script names:
+Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 
-| Script | Purpose |
+| Command | Purpose |
 |---|---|
-| `npm run dev` | Start dev server with watch mode (BE only) |
-| `npm start` | Start dev server (FE: `ng serve`) |
-| `npm run build` | Production build |
-| `npm test` | Run unit tests (Jest) |
-| `npm run test:e2e` | Run integration/e2e tests (BE only) |
-| `npm run lint` | ESLint check |
-| `npm run format` | Prettier format (write) |
-| `npm run format:check` | Prettier check (no write, for CI) |
-| `npm run codegen` | Run graphql-codegen (FE only) |
-| `npm run schema:export` | Export schema.graphql (BE only) |
-| `npm run migrate` | `prisma migrate dev` (BE only) |
-| `npm run seed` | `prisma db seed` (BE only) |
+| `pnpm run dev` | Start dev server with watch mode (BE only) |
+| `pnpm start` | Start dev server (FE: `ng serve`) |
+| `pnpm run build` | Production build |
+| `pnpm test` | Run unit tests (Jest) |
+| `pnpm run test:e2e` | Run integration/e2e tests (BE only) |
+| `pnpm run lint` | ESLint check |
+| `pnpm run format` | Prettier format (write) |
+| `pnpm run format:check` | Prettier check (no write, for CI) |
+| `pnpm run codegen` | Run graphql-codegen (FE only) |
+| `pnpm run schema:export` | Export schema.graphql (BE only) |
+| `pnpm run migrate` | `prisma migrate dev` (BE only) |
+| `pnpm run generate` | Regenerate Prisma Client after schema changes (BE only) |
+| `pnpm run seed` | Run seed script directly (BE only; also runs automatically after `migrate`) |
 
 ---
 
@@ -218,13 +222,13 @@ Both repos use these standardized script names:
 
 ```bash
 # Backend — unit tests
-cd cloudtalk_homework_be && npm test
+cd cloudtalk_homework_be && pnpm test
 
 # Backend — e2e (requires running Postgres)
-cd cloudtalk_homework_be && npm run test:e2e
+cd cloudtalk_homework_be && pnpm run test:e2e
 
 # Frontend — unit tests
-cd cloudtalk_homework_fe && npm test
+cd cloudtalk_homework_fe && pnpm test
 ```
 
 ---
@@ -232,15 +236,15 @@ cd cloudtalk_homework_fe && npm test
 ## Quality Gates
 
 Before any commit:
-- `npx tsc --noEmit` — zero type errors
-- `npm run lint` — zero ESLint errors
-- `npm test` — all tests pass
+- `pnpm exec tsc --noEmit` — zero type errors
+- `pnpm run lint` — zero ESLint errors
+- `pnpm test` — all tests pass
 
 In CI (GitHub Actions):
 - lint + typecheck + unit tests (both repos)
 - e2e tests against Postgres service container (BE only)
 - schema freshness: `schema.graphql` must match backend output
-- codegen runs before tsc: `npm run codegen` is the first FE CI step, generating `src/generated/` from `schema.graphql`
+- codegen runs before tsc: `pnpm run codegen` is the first FE CI step, generating `src/generated/` from `schema.graphql`
 
 ---
 
@@ -249,8 +253,8 @@ In CI (GitHub Actions):
 When an API contract changes (new field, renamed type, new endpoint):
 
 1. Implement the change in `cloudtalk_homework_be/` and merge to `main`
-2. Run `npm run schema:export` in the BE — commit the updated `schema.graphql`
-3. Implement the FE change — CI will run `npm run codegen` against the new schema automatically
+2. Run `pnpm run schema:export` in the BE — commit the updated `schema.graphql`
+3. Implement the FE change — CI will run `pnpm run codegen` against the new schema automatically
 4. Merge the FE change to `main`
 
 Never merge a FE change that depends on an unmerged BE change.
@@ -264,6 +268,7 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
 - **No CDN** — product images use placeholder URLs in MVP
+- **`dotenv-cli`** (dev dep, BE repo) — loads `.env` + `.env.local` for Prisma CLI scripts (`migrate`, `generate`, `seed`, `studio`)
 
 ---
 

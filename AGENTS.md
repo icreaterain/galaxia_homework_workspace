@@ -215,17 +215,20 @@ src/app/
     components/   StarRatingComponent, LoadingSpinnerComponent, PaginationComponent
     models/       TypeScript interfaces for REST responses
     pipes/        TimeAgoPipe
-  generated/      graphql-codegen output (run: npm run codegen)
+  generated/      graphql-codegen output (run: pnpm run codegen)
 ```
 
 ---
 
 ## Environment Variables
 
-### Backend `.env`
+### Backend `.env` (and optional `.env.local`)
+
+`.env.local` overrides `.env` for the same key — used for machine-specific values (e.g. Supabase URLs). Both files are gitignored; only `.env.example` is committed.
 
 ```
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
 JWT_SECRET=change-me-in-production
 JWT_ACCESS_EXPIRY=15m
 JWT_REFRESH_EXPIRY=7d
@@ -233,6 +236,8 @@ CORS_ORIGIN=http://localhost:4200
 PORT=3000
 NODE_ENV=development
 ```
+
+`DIRECT_URL` is required by the Prisma schema (`directUrl`). Local dev: same value as `DATABASE_URL`. Supabase: `DATABASE_URL` = pooled URL (port 6543), `DIRECT_URL` = direct URL (port 5432).
 
 ### Frontend `.env`
 
@@ -249,7 +254,7 @@ GRAPHQL_URL=http://localhost:3000/graphql
 # Clone workspace with submodules
 git clone --recurse-submodules <workspace-url>
 cd cloudtalk_homework
-./scripts/setup.sh           # init submodules + npm install
+./scripts/setup.sh           # init submodules + pnpm install
 
 # Start database
 docker compose up -d
@@ -257,13 +262,15 @@ docker compose up -d
 # Backend (new terminal)
 cd cloudtalk_homework_be
 cp .env.example .env
-npx prisma migrate dev       # runs seed automatically
-npm run dev                  # http://localhost:3000
+# Optional: create .env.local with machine-specific overrides (gitignored, wins over .env)
+pnpm install                 # also runs prisma generate via postinstall
+pnpm run migrate             # prisma migrate dev — runs seed automatically
+pnpm run dev                 # http://localhost:3000
 
 # Frontend (new terminal)
 cd cloudtalk_homework_fe
 cp .env.example .env
-npm start                    # http://localhost:4200
+pnpm start                   # http://localhost:4200
 ```
 
 Demo credentials (seeded): `user@demo.com / password123`, `admin@demo.com / password123`
@@ -274,10 +281,10 @@ Demo credentials (seeded): `user@demo.com / password123`, `admin@demo.com / pass
 
 ```bash
 # Backend — unit + e2e
-cd cloudtalk_homework_be && npm test && npm run test:e2e
+cd cloudtalk_homework_be && pnpm test && pnpm run test:e2e
 
 # Frontend — unit
-cd cloudtalk_homework_fe && npm test
+cd cloudtalk_homework_fe && pnpm test
 ```
 
 ---
@@ -285,9 +292,9 @@ cd cloudtalk_homework_fe && npm test
 ## Quality Gates
 
 Before any commit:
-- `npx tsc --noEmit` — zero type errors
-- `npm run lint` — zero ESLint errors
-- `npm test` — all tests pass
+- `pnpm exec tsc --noEmit` — zero type errors
+- `pnpm run lint` — zero ESLint errors
+- `pnpm test` — all tests pass
 
 In CI (GitHub Actions):
 - lint + typecheck + unit tests (both repos)
@@ -302,8 +309,8 @@ In CI (GitHub Actions):
 When an API contract changes (new field, renamed type, new endpoint):
 
 1. Implement the change in `cloudtalk_homework_be/` and merge to `main`
-2. Run `npm run schema:export` in the BE — commit the updated `schema.graphql`
-3. Implement the FE change — CI will run `npm run codegen` against the new schema automatically
+2. Run `pnpm run schema:export` in the BE — commit the updated `schema.graphql`
+3. Implement the FE change — CI will run `pnpm run codegen` against the new schema automatically
 4. Implement the FE change and merge to `main`
 
 Never merge a FE change that depends on an unmerged BE change.
@@ -317,7 +324,7 @@ Track progress here as phases complete. Update status and add links to key commi
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Docker Compose, rewrite ADRs, update docs | **complete** |
-| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | pending |
+| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **complete** |
 | 2 | Auth module (register, login, refresh, logout, guards) | pending |
 | 3 | GraphQL setup + product queries with pagination | pending |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | pending |
