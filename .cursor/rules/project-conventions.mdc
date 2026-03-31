@@ -1,0 +1,50 @@
+---
+description: Core project conventions for the CloudTalk homework product review system. Covers commit messages, file naming, environment variables, and cross-repo rules.
+alwaysApply: true
+---
+
+# Project Conventions
+
+## Commit Messages
+
+Format: `<type>(<scope>): <subject>`
+
+Types: `feat` `fix` `refactor` `test` `docs` `chore` `perf`
+
+Scopes: `auth` `reviews` `products` `db` `api` `fe` `workspace`
+
+```
+feat(reviews): add star rating to review submission form
+fix(api): correct 404 response when product not found
+```
+
+## File Naming
+
+| Layer | Convention |
+|---|---|
+| Angular components | `product-card.component.ts` |
+| Angular services | `review.service.ts` |
+| BE controllers | `reviews.controller.ts` |
+| BE services | `reviews.service.ts` |
+| DB migrations | `20260401120000_create_reviews.ts` |
+
+## Never Edit
+
+- `dist/` directories in either repo
+- Auto-generated Prisma client or TypeORM snapshot files
+
+## Environment Variables
+
+- `.env.example` is committed, `.env` is gitignored
+- Never commit real secrets — use placeholder values in examples
+
+## Cross-Repo Changes
+
+Backend API contract changes must be merged before frontend changes that depend on them.
+See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
+
+## Agentic Documentation
+
+After any significant architectural decision, add a file to `adr/` and update the index in `adr/README.md`.
+Update `ARCHITECTURE.md` only when the current system state changes (stack, data model, API surface).
+After any change to structure, ports, env vars, or conventions, update `WORKSPACE.md`.

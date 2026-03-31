@@ -1,0 +1,61 @@
+---
+description: REST API design conventions for the Node.js backend in this project.
+globs: cloudtalk_homework_be/**/*.ts
+alwaysApply: false
+---
+
+# API Design Conventions
+
+## Resource URLs
+
+```
+GET    /products              → list all products
+GET    /products/:id          → get product with aggregated rating
+GET    /products/:id/reviews  → list reviews for a product
+POST   /products/:id/reviews  → create a review (auth required)
+PUT    /reviews/:id           → edit own review (auth required)
+DELETE /reviews/:id           → delete own review (auth required)
+POST   /auth/register         → register
+POST   /auth/login            → login, sets refresh cookie
+POST   /auth/refresh          → exchange refresh cookie for new access token
+POST   /auth/logout           → clears refresh cookie
+```
+
+## HTTP Status Codes
+
+| Situation | Code |
+|---|---|
+| Successful creation | 201 |
+| Successful read/update | 200 |
+| Unauthenticated | 401 |
+| Authenticated but not authorized (not your review) | 403 |
+| Resource not found | 404 |
+| Unique constraint violation (duplicate review) | 409 |
+| Validation error | 422 |
+
+## Response Shape
+
+Successful list response:
+```json
+{ "data": [...], "meta": { "total": 42 } }
+```
+
+Successful single-item response:
+```json
+{ "data": { ... } }
+```
+
+Error response:
+```json
+{ "error": { "code": "DUPLICATE_REVIEW", "message": "You already reviewed this product." } }
+```
+
+## Validation
+
+Validate all request bodies at the controller/route level before they reach service logic.
+Use class-validator (NestJS) or Zod/Joi (Express) — whichever matches the chosen framework.
+
+## Auth Middleware
+
+Protected routes must use an `authenticate` middleware that verifies the JWT access token
+and attaches `req.user` (or sets the NestJS request context). Never check auth inside service methods.

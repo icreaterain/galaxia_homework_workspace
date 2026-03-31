@@ -1,0 +1,6 @@
+[submodule "cloudtalk_homework_fe"]
+	path = cloudtalk_homework_fe
+	url = https://github.com/icreaterain/cloudtalk_homework_fe.git
+[submodule "cloudtalk_homework_be"]
+	path = cloudtalk_homework_be
+	url = https://github.com/icreaterain/cloudtalk_homework_be.git

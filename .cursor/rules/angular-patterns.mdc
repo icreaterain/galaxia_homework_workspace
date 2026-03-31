@@ -1,0 +1,47 @@
+---
+description: Angular component and service patterns for the CloudTalk homework frontend.
+globs: cloudtalk_homework_fe/**/*.ts
+alwaysApply: false
+---
+
+# Angular Patterns
+
+## Components
+
+- Use standalone components (Angular 17+) unless the module already uses NgModules
+- Keep templates simple — move complex logic into the component class or a service
+- Use `OnPush` change detection for list-item components (e.g., `ReviewCardComponent`)
+
+```typescript
+@Component({
+  selector: 'app-review-card',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `...`,
+})
+export class ReviewCardComponent {
+  @Input({ required: true }) review!: Review;
+}
+```
+
+## Services
+
+- All HTTP calls live in services, never in components
+- Use the `inject()` function (Angular 14+) over constructor injection for new code
+- Return `Observable<T>` from service methods; use `firstValueFrom()` in components when async/await is cleaner
+
+## Reactive Forms
+
+Use `ReactiveFormsModule` for the review submission form. Template-driven forms are acceptable only for trivial single-field cases.
+
+## Auth State
+
+Store auth state in a dedicated `AuthService`. Expose `isLoggedIn$: Observable<boolean>` and `currentUser$: Observable<User | null>`. Do not read from localStorage directly in components.
+
+## Error Display
+
+Show user-facing errors via a shared `ErrorMessageComponent` or Angular Material snackbar. Never use `alert()`.
+
+## Route Guards
+
+Protect review creation/editing routes with a `canActivate` guard that checks `AuthService.isLoggedIn$`.
