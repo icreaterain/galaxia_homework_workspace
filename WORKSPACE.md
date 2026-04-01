@@ -178,15 +178,51 @@ chore(workspace): add docker-compose.yml
 - All GraphQL read paths live in resolvers; all write paths live in REST controllers.
   Never add mutations to the GraphQL schema (the hybrid split is intentional).
 - `@CurrentUser()` decorator works in both REST (`req.user`) and GraphQL
-  (`GqlExecutionContext`) contexts.
+  (`GqlExecutionContext`) contexts — use `GqlAuthGuard` (already in `src/auth/guards/`)
+  on resolver methods that require authentication.
 - The `schema.graphql` file is the contract artefact — export with `pnpm run schema:export`
   in the BE repo, then regenerate FE types with `pnpm run codegen` in the FE repo.
+
+### GraphQLModule Registration (Phase 3)
+
+Register in `AppModule` with the Apollo driver:
+
+```typescript
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { GraphQLModule } from '@nestjs/graphql';
+
+GraphQLModule.forRoot<ApolloDriverConfig>({
+  driver: ApolloDriver,
+  autoSchemaFile: true,
+  sortSchema: true,
+  context: ({ request }: { request: unknown }) => ({ req: request }),
+})
+```
+
+**Dependency versions (pinned for NestJS v10 compatibility):**
+- `@nestjs/graphql@^12` — v13+ requires NestJS v11
+- `@apollo/server@^4` — v5+ requires NestJS v11
+- `graphql@^16` — already required by v12
+
+Both packages are already in `package.json`; no additional install needed for Phase 3.
+
+### Cursor Pagination Pattern
+
+Relay-style cursor connections. Cursor = base64(`createdAt` ISO string).
+Pagination utilities live in `src/common/pagination/` (created in Phase 3).
+
+```
+ProductConnection { edges: [ProductEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
+PageInfo          { hasNextPage: Boolean!, endCursor: String }
+```
+
+Apply the same pattern for `ReviewConnection` (Phase 4) and `MyReviewsConnection`.
 
 ### GraphQL Codegen Workflow
 
 ```bash
 # In cloudtalk_homework_be/
-pnpm run schema:export   # writes schema.graphql
+pnpm run schema:export   # writes schema.graphql to repo root
 
 # In cloudtalk_homework_fe/
 pnpm run codegen         # reads schema.graphql, writes src/generated/
@@ -212,7 +248,9 @@ Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 | `pnpm run format:check` | Prettier check (no write, for CI) |
 | `pnpm run codegen` | Run graphql-codegen (FE only) |
 | `pnpm run schema:export` | Export schema.graphql (BE only) |
-| `pnpm run migrate` | `prisma migrate dev` (BE only) |
+| `pnpm run migrate` | `prisma migrate dev` — local dev (creates migration + applies, BE only) |
+| `pnpm run migrate:deploy` | `prisma migrate deploy` — apply committed migrations to local DB (no dev prompts) |
+| `pnpm run migrate:prod` | `prisma migrate deploy` against production — requires `.env.production` with Supabase URLs (BE only) |
 | `pnpm run generate` | Regenerate Prisma Client after schema changes (BE only) |
 | `pnpm run seed` | Run seed script directly (BE only; also runs automatically after `migrate`) |
 
@@ -268,7 +306,8 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
 - **No CDN** — product images use placeholder URLs in MVP
-- **`dotenv-cli`** (dev dep, BE repo) — loads `.env` + `.env.local` for Prisma CLI scripts (`migrate`, `generate`, `seed`, `studio`)
+- **`dotenv-cli`** (dev dep, BE repo) — loads `.env` + `.env.local` (or `.env.production`) for Prisma CLI scripts; uses `-o` flag so later files override earlier ones
+- **`@nestjs/graphql@^12` + `@apollo/server@^4` + `graphql@^16`** (BE repo) — pinned to NestJS v10-compatible versions; already installed, used by `GqlAuthGuard` and `GraphQLModule` (Phase 3)
 
 ---
 

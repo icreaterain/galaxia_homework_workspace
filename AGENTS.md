@@ -46,6 +46,7 @@ Never write backend logic in the frontend repo or vice versa.
 | Frontend GraphQL | Apollo Angular + `graphql-codegen` |
 | Backend framework | NestJS with Fastify adapter |
 | Backend API | Hybrid REST (`/api/*`) + GraphQL (`/graphql`) |
+| Backend GraphQL | `@nestjs/graphql@^12` + `@apollo/server@^4` + `graphql@^16` (pinned for NestJS v10) |
 | ORM | Prisma |
 | Database | PostgreSQL 16 |
 | Auth | JWT — access token (15 min, in-memory) + refresh token (7 days, httpOnly cookie) |
@@ -264,7 +265,9 @@ cd cloudtalk_homework_be
 cp .env.example .env
 # Optional: create .env.local with machine-specific overrides (gitignored, wins over .env)
 pnpm install                 # also runs prisma generate via postinstall
-pnpm run migrate             # prisma migrate dev — runs seed automatically
+pnpm run migrate             # prisma migrate dev — local only, runs seed automatically
+# For production: cp .env.production.example .env.production, fill Supabase URLs, then:
+# pnpm run migrate:prod       # prisma migrate deploy against production
 pnpm run dev                 # http://localhost:3000
 
 # Frontend (new terminal)

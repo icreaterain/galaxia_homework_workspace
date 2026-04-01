@@ -170,15 +170,53 @@ Cursor encodes the sort key as a base64 opaque string.
 
 ---
 
+## GraphQL Setup (Phase 3)
+
+`GraphQLModule` is registered in `AppModule` using the Apollo driver (code-first):
+
+```typescript
+GraphQLModule.forRoot<ApolloDriverConfig>({
+  driver: ApolloDriver,
+  autoSchemaFile: true,          // generates schema.graphql in-memory; use path for CI export
+  sortSchema: true,
+  context: ({ request }) => ({ req: request }),  // exposes req for GqlAuthGuard
+})
+```
+
+**Key decisions:**
+- `@nestjs/graphql@^12` + `@apollo/server@^4` — pinned to NestJS v10-compatible versions
+  (v13 / Apollo v5 require NestJS v11+)
+- `autoSchemaFile: true` during development; `pnpm run schema:export` writes `schema.graphql`
+  to disk for the FE codegen pipeline
+- `GqlAuthGuard` (already in `src/auth/guards/`) reads the request from `GqlExecutionContext`
+  and delegates to the same `jwt` Passport strategy used by REST guards
+- All GraphQL reads are unauthenticated by default; individual resolvers or fields apply
+  `@UseGuards(GqlAuthGuard)` as needed
+
+**Cursor-based pagination pattern** (Relay connections):
+
+```
+ProductConnection { edges: [ProductEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
+ProductEdge       { node: Product!, cursor: String! }
+PageInfo          { hasNextPage: Boolean!, endCursor: String }
+```
+
+Cursor encodes `createdAt` (ISO string) as base64. Utilities live in
+`src/common/pagination/` (created in Phase 3).
+
+---
+
 ## Backend Module Structure
 
-> **Phase 1 implemented** (currently on disk): `main.ts`, `app.module.ts`, `config/`, `database/`, `health/`.
-> Remaining modules (`auth/`, `products/`, `reviews/`, `common/`) are the planned target — added in Phases 2–5.
+> **Phases 1–2 implemented.** `auth/`, `common/decorators/`, `common/filters/` are on disk.
+> Phase 3 target: `products/` module (GraphQL queries). Phases 4–5: `reviews/` and remaining `common/`.
 
 ```
 src/
-  main.ts                       # Bootstrap: Fastify adapter, ValidationPipe, CORS, /api prefix
-  app.module.ts                 # Root module — ConfigModule (global), PrismaModule, HealthModule
+  main.ts                       # Bootstrap: Fastify adapter, ValidationPipe, CORS, /api prefix,
+                                #   global HttpExceptionFilter
+  app.module.ts                 # Root module — ConfigModule (global), PrismaModule, HealthModule,
+                                #   AuthModule
   config/
     configuration.ts            # Typed AppConfig + Joi validation schema; .env + .env.local loaded
   database/
@@ -187,34 +225,45 @@ src/
   health/
     health.module.ts
     health.controller.ts        # GET /api/health (liveness) + GET /api/health/ready (readiness)
-
-  # --- Phases 2–5 (not yet implemented) ---
-  auth/
-    auth.module.ts
-    auth.controller.ts          # REST: register, login, refresh, logout
-    auth.service.ts             # Bcrypt, JWT signing, refresh token logic
+  auth/                         # ✅ Phase 2
+    auth.module.ts              # PassportModule, JwtModule (async), strategies, controller, service
+    auth.controller.ts          # POST /api/auth/register|login|refresh|logout
+    auth.service.ts             # bcrypt hash/compare, JWT sign (access + refresh), ConflictException
+    interfaces/
+      jwt-payload.interface.ts  # JwtPayload { sub, email, role }, AuthenticatedUser
     strategies/
-      jwt.strategy.ts
-      jwt-refresh.strategy.ts
+      jwt.strategy.ts           # Bearer token → validates user exists → returns AuthenticatedUser
+      jwt-refresh.strategy.ts   # httpOnly cookie extractor → same validation
     guards/
-      jwt-auth.guard.ts
-      gql-auth.guard.ts
+      jwt-auth.guard.ts         # REST: extends AuthGuard('jwt')
+      jwt-refresh.guard.ts      # REST: extends AuthGuard('jwt-refresh')
+      gql-auth.guard.ts         # GraphQL: overrides getRequest() via GqlExecutionContext
     dto/
-      register.dto.ts
-      login.dto.ts
+      register.dto.ts           # email, displayName, password (class-validator)
+      login.dto.ts              # email, password
+  common/                       # ✅ Phase 2 (partial)
+    decorators/
+      current-user.decorator.ts # @CurrentUser() — reads req.user set by Passport (REST only)
+    filters/
+      http-exception.filter.ts  # Global: HttpException → { error: { code, message, statusCode } }
+
+  # --- Phase 3 target ---
   products/
     products.module.ts
-    products.resolver.ts        # GraphQL: product, products queries
-    products.service.ts
+    products.resolver.ts        # @Query() product(id), products(first, after, filter)
+    products.service.ts         # findById, findAll with cursor pagination
     models/
-      product.model.ts
+      product.model.ts          # @ObjectType()
       product-connection.model.ts
-      product-filter.input.ts
+      product-filter.input.ts   # @InputType()
+      rating-distribution.model.ts
+
+  # --- Phases 4–5 target ---
   reviews/
     reviews.module.ts
-    reviews.controller.ts       # REST: create, update, delete
-    reviews.resolver.ts         # GraphQL: reviews field, myReviews query
-    reviews.service.ts          # Business logic, aggregate recalc
+    reviews.controller.ts       # REST: POST /products/:id/reviews, PUT/DELETE /reviews/:id
+    reviews.resolver.ts         # @ResolveField() reviews on Product; @Query() myReviews
+    reviews.service.ts          # Business logic, aggregate recalc in same transaction
     dto/
       create-review.dto.ts
       update-review.dto.ts
@@ -222,11 +271,8 @@ src/
       review.model.ts
       review-connection.model.ts
       review-sort.enum.ts
-  common/
-    decorators/
-      current-user.decorator.ts
+  common/                       # Phase 5 additions
     filters/
-      http-exception.filter.ts
       gql-exception.filter.ts
     interceptors/
       logging.interceptor.ts
@@ -326,7 +372,7 @@ GRAPHQL_URL=http://localhost:3000/graphql
 |---|---|---|
 | 0 | Docker Compose, rewrite ADRs, update docs | **Complete** |
 | 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **Complete** |
-| 2 | Auth module (register, login, refresh, logout, guards) | Pending |
+| 2 | Auth module (register, login, refresh, logout, guards) | **Complete** |
 | 3 | GraphQL setup + product queries with pagination | Pending |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | Pending |
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | Pending |
