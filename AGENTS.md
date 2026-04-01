@@ -325,7 +325,7 @@ Track progress here as phases complete. Update status and add links to key commi
 |---|---|---|
 | 0 | Docker Compose, rewrite ADRs, update docs | **complete** |
 | 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **complete** |
-| 2 | Auth module (register, login, refresh, logout, guards) | pending |
+| 2 | Auth module (register, login, refresh, logout, guards) | **complete** |
 | 3 | GraphQL setup + product queries with pagination | pending |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | pending |
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | pending |
