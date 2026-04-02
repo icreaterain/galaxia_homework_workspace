@@ -94,6 +94,7 @@ pnpm run dev             # http://localhost:3000
 cd cloudtalk_homework_fe
 cp .env.example .env
 pnpm install
+pnpm run codegen         # generate typed GQL services from schema.graphql (first time and after BE schema changes)
 pnpm start               # http://localhost:4200
 ```
 
@@ -248,6 +249,76 @@ pnpm run codegen         # reads schema.graphql, writes src/generated/
 ```
 
 `src/generated/` is **gitignored**. CI runs `pnpm run codegen` before `tsc` and tests.
+
+---
+
+## Frontend Architecture (Phase 6+)
+
+### App Bootstrap
+
+`app.config.ts` wires all providers:
+
+```typescript
+provideRouter(routes, withComponentInputBinding())
+provideHttpClient(withFetch(), withInterceptors([authInterceptor, errorInterceptor]))
+provideAnimations()
+provideApollo()                                     // Apollo Client + InMemoryCache
+{ provide: APP_INITIALIZER, useFactory: initAuth }  // restores token from sessionStorage
+```
+
+`app.routes.ts` uses lazy-loaded routes for every feature. The `authGuard` (functional) protects
+`/my-reviews`.
+
+### Auth Pattern
+
+`AuthService` (`src/app/core/auth/`) holds all auth state:
+
+- Access token stored in `sessionStorage`, exposed as a `signal<string | null>`.
+- `isLoggedIn` and `currentUser` are `computed()` signals — read them directly in templates with `()`.
+- `initFromSession()` is called once via `APP_INITIALIZER` on app boot.
+- **`authInterceptor`** — attaches `Authorization: Bearer <token>` to every outgoing request.
+- **`errorInterceptor`** — catches 401 on non-auth URLs, calls `POST /api/auth/refresh` (httpOnly cookie),
+  then retries the original request. On refresh failure, clears session.
+
+No Firebase. No `localStorage`. Do not introduce NgRx or BehaviorSubject for auth state.
+
+### Apollo Client
+
+`provideApollo()` (`src/app/core/graphql/graphql.provider.ts`) returns `EnvironmentProviders`.
+Cache policy: `fetchPolicy: 'cache-and-network'`. Cursor pagination merge is configured for
+`Product.reviews` (merges edges on subsequent `after` pages; resets on new `sort`/`filterByRating`).
+
+Reads `GRAPHQL_URL` from `window.__env?.GRAPHQL_URL` (runtime) falling back to `http://localhost:3000/graphql`.
+
+### Environment Variables (Frontend)
+
+```
+API_URL=http://localhost:3000/api
+GRAPHQL_URL=http://localhost:3000/graphql
+```
+
+Set in `.env` (gitignored). `.env.example` is committed. Values can be overridden at runtime via
+`window.__env` (inject into `index.html` via a server-side script in production).
+
+### Jest / Testing
+
+- Test runner: `@angular-builders/jest` invoked via `ng test` (`pnpm test`).
+- `@angular-builders/jest` **automatically injects** `jest-preset-angular/setup-env/zone` into
+  `setupFilesAfterEnv` — do **not** add it again in `jest.config.js` or `setup-jest.ts`.
+  Calling `setupZoneTestEnv()` a second time throws "Cannot set base providers because it has
+  already been called".
+- `setup-jest.ts` is kept as a placeholder for custom global setup (mocks, matchers, etc.).
+- Components that inject `AuthService` need `provideHttpClient()` + `provideRouter([])` in their spec.
+
+### Shared Components
+
+| Component | Location | Notes |
+|---|---|---|
+| `StarRatingComponent` | `shared/components/star-rating/` | Interactive (emits `ratingChange`) or readonly; `OnPush` |
+| `LoadingSpinnerComponent` | `shared/components/` | `size` input (`sm`/`md`/`lg`), optional `label` |
+| `ErrorMessageComponent` | `shared/components/` | `message` + optional `retry` emitter |
+| `PaginationComponent` | `shared/components/` | Relay-style load-more; `OnPush` |
+| `TimeAgoPipe` | `shared/pipes/` | Standalone pipe; formats ISO date strings |
 
 ---
 

@@ -298,44 +298,57 @@ src/
 
 ## Frontend Structure
 
+> **Phase 6 implemented.** Files marked `⬜ Phase 8` are stubs that will be filled in Phase 8.
+
 ```
-src/app/
-  core/
-    auth/
-      auth.service.ts           # Signals: isLoggedIn, currentUser; token management
-      auth.guard.ts
-      auth.interceptor.ts       # Attaches JWT to REST requests
-    graphql/
-      graphql.provider.ts       # Apollo Client configuration
-    http/
-      error.interceptor.ts      # 401 → silent token refresh
-  features/
-    products/
-      product-list.component.ts
-      product-detail.component.ts
+src/
+  app/
+    app.component.ts            # Nav shell — logo, primary nav, auth actions, router-outlet
+    app.config.ts               # provideRouter, provideHttpClient (interceptors), provideApollo,
+                                #   APP_INITIALIZER (initFromSession)
+    app.routes.ts               # Lazy-loaded routes; authGuard on /my-reviews
+    core/
+      auth/
+        auth.service.ts         # Signals: isLoggedIn, currentUser, accessToken;
+                                #   login/register/refresh/logout; sessionStorage persistence
+        auth.guard.ts           # Functional canActivate; reads isLoggedIn() signal
+        auth.interceptor.ts     # Attaches Authorization: Bearer to all outgoing REST requests
       graphql/
-        product.queries.ts
-    reviews/
-      review-list.component.ts
-      review-form.component.ts
-      review-card.component.ts
-      graphql/
-        review.queries.ts
-      review-command.service.ts  # REST: create/update/delete
-    auth/
-      login.component.ts
-      register.component.ts
-  shared/
-    components/
-      star-rating/
-        star-rating.component.ts
-      loading-spinner.component.ts
-      error-message.component.ts
-      pagination.component.ts
-    models/                     # TypeScript interfaces for REST responses
-    pipes/
-      time-ago.pipe.ts
-  generated/                    # graphql-codegen output — gitignored; run `pnpm run codegen`
+        graphql.provider.ts     # provideApollo() — InMemoryCache, cursor merge, HTTP link
+      http/
+        error.interceptor.ts    # Catches 401, calls /api/auth/refresh, retries original request
+    features/
+      products/
+        product-list.component.ts   # ⬜ Phase 8 — stub placeholder
+        product-detail.component.ts # ⬜ Phase 8 — stub placeholder
+        graphql/
+          product.queries.ts        # PRODUCT_LIST_QUERY, PRODUCT_DETAIL_QUERY,
+                                    #   PRODUCT_REVIEWS_QUERY — gql documents
+      reviews/
+        my-reviews.component.ts     # ⬜ Phase 8 — stub placeholder; auth-guarded route
+        review-list.component.ts    # ⬜ Phase 8 — not yet created
+        review-form.component.ts    # ⬜ Phase 8 — not yet created
+        review-card.component.ts    # ⬜ Phase 8 — not yet created
+        review-command.service.ts   # REST: createReview, updateReview, deleteReview
+        graphql/
+          review.queries.ts         # MY_REVIEWS_QUERY — gql document
+      auth/
+        login.component.ts          # ⬜ Phase 7 — stub placeholder
+        register.component.ts       # ⬜ Phase 7 — stub placeholder
+    shared/
+      components/
+        star-rating/
+          star-rating.component.ts  # Interactive + readonly; emits ratingChange; OnPush
+        loading-spinner.component.ts
+        error-message.component.ts
+        pagination.component.ts     # Relay-style load-more
+      models/
+        auth.models.ts              # LoginRequest, RegisterRequest, AuthUser, TokenResponse
+        review.models.ts            # CreateReviewRequest, UpdateReviewRequest, ReviewResponse
+      pipes/
+        time-ago.pipe.ts            # Standalone pipe; "3d ago", "2mo ago", etc.
+  generated/                        # graphql-codegen output — gitignored; run `pnpm run codegen`
+  styles.css                        # Tailwind directives + .btn, .input, .card, .label utilities
 ```
 
 ---

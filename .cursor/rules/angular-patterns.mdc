@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Components
 
-- Use standalone components (Angular 17+) unless the module already uses NgModules
+- Use standalone components (Angular 19, no NgModules)
 - Keep templates simple — move complex logic into the component class or a service
 - Use `OnPush` change detection for list-item components (e.g., `ReviewCardComponent`)
 
@@ -27,21 +27,67 @@ export class ReviewCardComponent {
 ## Services
 
 - All HTTP calls live in services, never in components
-- Use the `inject()` function (Angular 14+) over constructor injection for new code
+- Use the `inject()` function over constructor injection for new code
 - Return `Observable<T>` from service methods; use `firstValueFrom()` in components when async/await is cleaner
+
+## Auth State
+
+Auth uses **self-managed JWT** — no Firebase. `AuthService` (`src/app/core/auth/auth.service.ts`):
+
+- Stores the access token in `sessionStorage` and exposes it via Angular **signals**:
+  `isLoggedIn`, `currentUser`, `accessToken` (all `computed()` or `signal()`)
+- `initFromSession()` is called on app boot via `APP_INITIALIZER` in `app.config.ts`
+- On login/register, the server returns `{ accessToken, user }` and sets an httpOnly refresh cookie
+- `authInterceptor` (functional) attaches `Authorization: Bearer <token>` to every outgoing REST request
+- `errorInterceptor` catches 401 responses and calls `POST /api/auth/refresh` (uses the httpOnly cookie);
+  on success it retries the original request; on failure it clears the session
+
+```typescript
+// ✅ reading auth state in a component
+readonly authService = inject(AuthService);
+// template: @if (authService.isLoggedIn()) { ... }
+```
+
+```typescript
+// ❌ DO NOT store tokens in localStorage
+// ❌ DO NOT use Firebase — auth is self-managed
+```
 
 ## Reactive Forms
 
 Use `ReactiveFormsModule` for the review submission form. Template-driven forms are acceptable only for trivial single-field cases.
 
-## Auth State
+## Route Guards
 
-Use **Firebase Authentication** for sign-up, sign-in, and sign-out. Store auth state in a dedicated `AuthService` that wraps Firebase Auth (`onAuthStateChanged`, `signInWithEmailAndPassword`, etc. as appropriate). Expose `isLoggedIn$` / `currentUser$` (or signals) derived from Firebase. For API calls, attach the current **Firebase ID token** via an HTTP interceptor (`getIdToken()`). Do not persist credentials in `localStorage` manually; Firebase handles token persistence per its SDK defaults.
+Use the functional `authGuard` from `src/app/core/auth/auth.guard.ts`. Apply it in `app.routes.ts`:
+
+```typescript
+{ path: 'my-reviews', canActivate: [authGuard], loadComponent: () => ... }
+```
+
+The guard reads `authService.isLoggedIn()` (signal, synchronous) and redirects to `/auth/login` if false.
 
 ## Error Display
 
-Show user-facing errors via a shared `ErrorMessageComponent` or Angular Material snackbar. Never use `alert()`.
+Show user-facing errors via `ErrorMessageComponent` (`src/app/shared/components/error-message.component.ts`). Never use `alert()`.
 
-## Route Guards
+## Apollo / GraphQL
 
-Protect review creation/editing routes with a `canActivate` guard that checks `AuthService.isLoggedIn$`.
+- `provideApollo()` is called in `app.config.ts` and returns `EnvironmentProviders`
+- Query documents live in `features/<domain>/graphql/<domain>.queries.ts` as `gql` tagged templates
+- Typed query services live in `src/generated/graphql.ts` — run `pnpm run codegen` to regenerate
+- Use `Apollo.watchQuery()` in components or inject the generated typed service directly
+
+## Testing
+
+- Run tests with `pnpm test` (`ng test` via `@angular-builders/jest`); the builder owns zone env init
+- **Do NOT call `setupZoneTestEnv()` in `setup-jest.ts`** — `@angular-builders/jest` injects it;
+  calling it twice causes "Cannot set base providers because it has already been called"
+- Components that inject `AuthService` need `provideHttpClient()` and `provideRouter([])` in the spec:
+
+```typescript
+await TestBed.configureTestingModule({
+  imports: [MyComponent],
+  providers: [provideRouter([]), provideHttpClient()],
+}).compileComponents();
+```
