@@ -1,10 +1,6 @@
----
-description: TypeScript coding standards for both the Angular frontend and Node.js backend in this project.
-globs: **/*.ts
-alwaysApply: false
----
-
 # TypeScript Standards
+
+Applies to: `**/*.ts` in both the Angular frontend and Node.js backend.
 
 ## Error Handling
 

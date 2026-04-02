@@ -1,9 +1,6 @@
----
-name: cross-repo-change
-description: Coordinates changes that span both the frontend (cloudtalk_homework_fe) and backend (cloudtalk_homework_be) repositories. Use when an API contract changes, a new endpoint is added, a shared type needs updating, or any change requires commits in both repos.
----
-
 # Cross-Repo Change Coordination
+
+Coordinates changes that span both the frontend (`cloudtalk_homework_fe`) and backend (`cloudtalk_homework_be`) repositories. Use when an API contract changes, a new endpoint is added, a shared type needs updating, or any change requires commits in both repos.
 
 ## Dependency Direction
 
@@ -50,7 +47,7 @@ Use the same scope in both repos' commit messages:
 feat(reviews): add helpful votes endpoint
 
 # FE commit
-feat(reviews): implement helpful votes UI
+feat(reviews): implement helpful votes ui
 ```
 
 ## API Contract Documentation
@@ -68,7 +65,7 @@ When a type/interface changes (e.g., the `Review` response shape):
 
 1. Update the BE response DTO/interface
 2. Manually update the matching TypeScript interface in the FE (`src/app/models/review.ts` or similar)
-3. Note this in the commit message: `feat(reviews): align Review type with API v2 response shape`
+3. Note this in the commit message: `feat(reviews): align review type with api v2 response shape`
 
 ## Checklist Before Opening a FE PR That Depends on a BE Change
 

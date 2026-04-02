@@ -1,10 +1,6 @@
----
-description: REST and GraphQL API design conventions for the hybrid NestJS backend.
-globs: cloudtalk_homework_be/**/*.ts
-alwaysApply: false
----
-
 # API Design Conventions
+
+Applies to: `cloudtalk_homework_be/**/*.ts`
 
 ## Hybrid REST + GraphQL Split
 

@@ -1,79 +1,84 @@
 # AGENTS.md — Product Reviews System
 
 This file is the entry point for AI agents working in this repository.
-Read it fully before writing any code. Update it after any significant change.
+Read it fully before writing any code.
 
-For Cursor-specific context, rules, and skills, see [`WORKSPACE.md`](WORKSPACE.md).
-For architecture decisions and rationale, see [`adr/`](adr/README.md).
-For current system state (stack, schema, API), see [`ARCHITECTURE.md`](ARCHITECTURE.md).
-
----
-
-## Project in One Paragraph
-
-A full-stack **product review system** (Amazon/Alza-style). Users browse a seeded product
-catalog, register, and submit star-rated reviews with text. The backend exposes a **hybrid
-REST + GraphQL API**: REST handles all write commands (auth, review mutations); GraphQL
-handles all reads (product queries, paginated review lists with aggregates). The frontend
-is an Angular SPA that uses Angular's `HttpClient` for REST and Apollo Angular for GraphQL.
+For the current system state (stack, schema, API), see [`ARCHITECTURE.md`](ARCHITECTURE.md).
+For developer onboarding and operating conventions, see [`WORKSPACE.md`](WORKSPACE.md).
+For decision rationale, see [`adr/`](adr/README.md).
 
 ---
 
-## Repository Layout
+## About This Workspace
 
-```
-cloudtalk_homework/            ← this workspace (git superproject)
-├── cloudtalk_homework_be/     ← NestJS API (git submodule)
-├── cloudtalk_homework_fe/     ← Angular SPA (git submodule)
-├── mcp/
-│   ├── cloudtalk-api/         ← MCP server: list / get_details / execute against the API
-│   └── cloudtalk-db/          ← MCP server: read-only SQL query tool direct to Postgres
-├── adr/                       ← Architecture Decision Records
-├── scripts/                   ← setup and submodule helpers
-├── mcp.json                   ← MCP server config (workspace-relative; copy or merge into your IDE)
-├── AGENTS.md                  ← you are here
-├── ARCHITECTURE.md            ← current system overview
-└── WORKSPACE.md               ← Cursor-specific agentic context
-```
+This is a **cross-repository development workspace** for a full-stack product review system
+(Amazon/Alza-style). It uses **git submodules** to coordinate changes across 2 repositories.
 
-**MCP:** [`mcp.json`](mcp.json) registers two servers (stdio); Cursor also reads [`.cursor/mcp.json`](.cursor/mcp.json) (same content). Build both before use:
+**What the system does:**
+- Users browse a seeded product catalog, register, and submit star-rated reviews with text
+- The backend exposes a **hybrid REST + GraphQL API**: REST for all write commands (auth, review mutations); GraphQL for all reads (product queries, paginated review lists with aggregates)
+- The frontend is an Angular SPA consuming both protocols
 
-```bash
-cd mcp/cloudtalk-api && pnpm install && pnpm run build   # wraps REST + GraphQL API
-cd mcp/cloudtalk-db  && pnpm install && pnpm run build   # direct read-only DB queries
-```
-
-- **cloudtalk-api** requires the backend running at `BASE_URL` (default `http://localhost:3000`). Tools: `list`, `get_details`, `execute`. See [ADR 015](adr/015-mcp-api-wrapper.md).
-- **cloudtalk-db** requires `DATABASE_URL` (default: local Docker Compose Postgres). Single tool: `query` — accepts any read-only SQL and returns JSON. See [ADR 016](adr/016-mcp-db-reader.md).
-
-Work only in the submodule that owns the concern you are changing.
-Never write backend logic in the frontend repo or vice versa.
+**User groups:**
+- Anonymous visitors — browse products, read reviews
+- Authenticated users — create, edit, and delete their own reviews
+- Admin (seeded) — moderate review status (P2)
 
 ---
 
-## Stack (Decided)
+## Documentation Structure
 
-| Layer | Technology |
-|---|---|
-| Frontend framework | Angular 17+ (standalone components, signals) |
-| Frontend styling | Tailwind CSS |
-| Frontend GraphQL | Apollo Angular + `graphql-codegen` |
-| Backend framework | NestJS with Fastify adapter |
-| Backend API | Hybrid REST (`/api/*`) + GraphQL (`/graphql`) |
-| Backend GraphQL | `@nestjs/graphql@^12` + `@apollo/server@^4` + `graphql@^16` (pinned for NestJS v10) |
-| ORM | Prisma |
-| Database | PostgreSQL 16 |
-| Auth | JWT — access token (15 min, in-memory) + refresh token (7 days, httpOnly cookie) |
-| Logging | pino (via Fastify) |
-| Testing | Jest (both repos) |
-| CI | GitHub Actions (`quality` + `build` + `deploy` jobs per repo) |
-| Backend hosting | Google Cloud Run (managed, `us-central1`) |
-| Frontend hosting | Firebase Hosting (SPA + rewrites to Cloud Run) |
-| GCP auth | Workload Identity Federation (OIDC — no JSON keys in secrets) |
-| Local dev | Docker Compose (Postgres only) |
+This workspace uses **modular documentation** stored in agent-agnostic format:
 
-Decisions not yet reached by implementation are marked **TBD** in `ARCHITECTURE.md`.
-Do not assume the TBD items — check that file first.
+| File | Purpose |
+|------|---------|
+| **AGENTS.md** (this file) | Quick reference, navigation, project overview |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | System architecture, data model, API surface, CI/CD |
+| **[WORKSPACE.md](WORKSPACE.md)** | Developer onboarding, setup, conventions, environment |
+| **[adr/](adr/README.md)** | Architecture Decision Records (16 decisions) |
+| **[.ai/](/.ai/README.md)** | Agent rules, skills, development guide, workflows |
+
+### .ai/ Directory
+
+```
+.ai/
+├── development.md           — Commands, quality gates, scripts reference
+├── workflows.md             — Cross-repo workflow patterns
+├── rules/                   — Coding standards by file scope
+│   ├── project-conventions.md    (all files)
+│   ├── typescript-standards.md   (**/*.ts)
+│   ├── angular-patterns.md       (FE **/*.ts)
+│   └── api-design.md             (BE **/*.ts)
+└── skills/                  — Multi-step workflow guides
+    ├── graphql-schema-sync/      keeping schema.graphql in sync (export + codegen)
+    ├── cross-repo-change/        coordinating BE + FE changes
+    ├── extend-agentic-docs/      maintaining workspace documentation
+    ├── start-task/               initialize task with branches + plan
+    └── finish-task/              quality checks, commit, PR creation
+```
+
+---
+
+## Repository Overview
+
+| Repository | Purpose | Stack | Port |
+|------------|---------|-------|------|
+| [`cloudtalk_homework_be/`](cloudtalk_homework_be/) | NestJS API + Prisma + PostgreSQL | Node.js + TypeScript | 3000 |
+| [`cloudtalk_homework_fe/`](cloudtalk_homework_fe/) | Angular SPA + Apollo + Tailwind | Angular + TypeScript | 4200 |
+
+**PostgreSQL** runs via Docker Compose on port **5432**.
+
+### Dependency Graph
+
+```
+cloudtalk_homework_fe  →  depends on  →  cloudtalk_homework_be
+                                              │
+                                         Prisma Client
+                                              │
+                                       PostgreSQL :5432
+```
+
+**Key integration point:** The GraphQL schema. The BE exports `schema.graphql` (code-first); the FE runs `graphql-codegen` against it to generate typed services. See [ADR 011](adr/011-contract-ownership.md).
 
 ---
 
@@ -81,20 +86,23 @@ Do not assume the TBD items — check that file first.
 
 ```
 Angular SPA
-  ├── HttpClient  ──POST/PUT/DELETE──▶  /api/*       (REST controllers)
-  └── Apollo      ──POST /graphql──▶    /graphql      (GraphQL resolvers)
-                                             │
-                                       Service Layer   (shared, protocol-agnostic)
-                                             │
-                                       Prisma Client
-                                             │
-                                       PostgreSQL
+ ├── HttpClient ──POST/PUT/DELETE──▶ /api/* (REST controllers)
+ └── Apollo ──POST /graphql──▶ /graphql (GraphQL resolvers)
+                                    │
+                               Service Layer (shared, protocol-agnostic)
+                                    │
+                               Prisma Client
+                                    │
+                               PostgreSQL
 ```
 
-- REST controllers and GraphQL resolvers both inject the **same service layer**.
-- Services contain all business logic and do not know which protocol called them.
-- REST for commands (create/update/delete review, auth flows).
-- GraphQL for reads (product queries, paginated reviews, aggregates).
+- REST controllers and GraphQL resolvers both inject the **same service layer**
+- Services contain all business logic and do not know which protocol called them
+- REST for commands (create/update/delete review, auth flows)
+- GraphQL for reads (product queries, paginated reviews, aggregates)
+- Never add mutations to GraphQL; never add GET endpoints to REST for data reads
+
+See [ADR 009](adr/009-hybrid-rest-graphql.md) for the full rationale.
 
 ---
 
@@ -102,29 +110,21 @@ Angular SPA
 
 ### REST (`/api/*`)
 
-```
-POST   /api/auth/register
-POST   /api/auth/login             → sets httpOnly refresh cookie
-POST   /api/auth/refresh           → exchanges refresh cookie for new access token
-POST   /api/auth/logout
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/register` | — | Create account |
+| POST | `/api/auth/login` | — | Authenticate; sets httpOnly refresh cookie |
+| POST | `/api/auth/refresh` | cookie | Exchange refresh cookie for new access token |
+| POST | `/api/auth/logout` | — | Clear refresh cookie |
+| POST | `/api/products/:productId/reviews` | JWT | Create review |
+| PUT | `/api/reviews/:id` | JWT (owner) | Update own review |
+| DELETE | `/api/reviews/:id` | JWT (owner) | Delete own review |
+| GET | `/api/health` | — | Liveness check |
+| GET | `/api/health/ready` | — | Readiness check (verifies DB) |
 
-POST   /api/products/:productId/reviews    ← auth required
-PUT    /api/reviews/:id                    ← auth required, owner only
-DELETE /api/reviews/:id                    ← auth required, owner only
-
-GET    /api/health
-GET    /api/health/ready
-```
-
-Response envelope:
-```json
-{ "data": { ... } }                       // success
-{ "error": { "code": "...", "message": "...", "statusCode": 422 } }   // error
-```
+Response envelope: `{ "data": { ... } }` on success, `{ "error": { "code": "...", "message": "...", "statusCode": N } }` on error.
 
 ### GraphQL (`/graphql`)
-
-Key queries (expand as schema grows):
 
 ```graphql
 product(id: ID!): Product
@@ -132,278 +132,192 @@ products(first: Int, after: String, filter: ProductFilterInput): ProductConnecti
 myReviews(first: Int, after: String): ReviewConnection
 ```
 
-Product includes nested: `avgRating`, `reviewCount`, `ratingDistribution`,
-`reviews(first, after, sort, filterByRating)`.
+Product includes nested: `avgRating`, `reviewCount`, `ratingDistribution`, `reviews(first, after, sort, filterByRating)`.
+
+Pagination: Relay-style cursor connections (`first`/`after`, `edges`/`pageInfo`).
 
 ---
 
-## Data Model (Current Draft)
+## Data Model
 
 ```
-users         id, email (UNIQUE), display_name, password_hash (bcrypt), role (user|admin)
-products      id, name, description, image_url, category, price, avg_rating*, review_count*
-reviews       id, user_id FK, product_id FK, rating (1-5), title?, body, status, UNIQUE(user_id, product_id)
-review_votes  id, review_id FK, user_id FK, UNIQUE(review_id, user_id)      ← P1
+users       id, email (UNIQUE), display_name, password_hash (bcrypt), role (user|admin)
+products    id, name, description, image_url, category, price, avg_rating*, review_count*
+reviews     id, user_id FK, product_id FK, rating (1-5), title?, body, status, UNIQUE(user_id, product_id)
+review_votes  id, review_id FK, user_id FK, UNIQUE(review_id, user_id)  ← P1
 ```
 
-`*` `avg_rating` and `review_count` are **denormalized** — recalculated inside
-`ReviewsService` in the same transaction as every review write (create/update/delete).
+`*` `avg_rating` and `review_count` are **denormalized** — recalculated inside `ReviewsService` in the same transaction as every review write.
 
 ---
 
-## Coding Conventions
+## Quick Start for Agents
 
-### Commit Messages (enforced by commitlint)
+### For Simple Tasks (Single Repository)
 
-```
-<type>(<scope>): <subject>
+Work directly in the appropriate repository. Read the relevant `.ai/rules/` file for coding standards.
 
-feat(reviews): add helpful votes endpoint
-fix(auth): correct refresh token rotation on concurrent requests
-docs(adr): add ADR 009 hybrid REST+GraphQL
-```
+### For Cross-Repository Tasks
 
-Types: `feat` `fix` `refactor` `test` `docs` `chore` `perf`
-BE scopes: `auth` `reviews` `products` `db` `api` `health` `common`
-FE scopes: `auth` `reviews` `products` `shared` `graphql` `fe`
+Read `.ai/skills/cross-repo-change/SKILL.md` first. Backend changes always go before frontend changes.
 
-### TypeScript
+### For GraphQL Schema Changes
 
-- `strict: true` in both repos. No `any`. No implicit returns.
-- Explicit return types on all public service and controller methods.
-- Error handling: always `catch (e)` and log with context — never swallow silently.
-
-### Backend File Naming
-
-| File type | Convention |
-|---|---|
-| Controller | `reviews.controller.ts` |
-| Service | `reviews.service.ts` |
-| Resolver | `reviews.resolver.ts` |
-| DTO | `create-review.dto.ts` |
-| GraphQL model | `review.model.ts` |
-| Guard | `jwt-auth.guard.ts` |
-
-### Frontend File Naming
-
-| File type | Convention |
-|---|---|
-| Component | `review-card.component.ts` |
-| Service | `review-command.service.ts` |
-| Guard | `auth.guard.ts` |
-| Interceptor | `auth.interceptor.ts` |
-| GQL queries | `review.queries.ts` |
-
-### Never Edit
-
-- `dist/` in either repo
-- `src/generated/` in the FE repo (graphql-codegen output)
-- `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
+Read `.ai/skills/graphql-schema-sync/SKILL.md` — covers export, codegen, drift detection, and breaking changes.
 
 ---
 
-## Backend Module Structure
+## Git Workflow
 
-```
-src/
-  auth/         controllers + service + strategies + guards + DTOs
-  products/     resolver + service + models
-  reviews/      controller + resolver + service + DTOs + models
-  common/       decorators, filters, interceptors, middleware, scalars
-  database/     prisma.module.ts + prisma.service.ts
-  health/       health.controller.ts
-  config/       configuration.ts (@nestjs/config, validated at startup)
-```
-
----
-
-## Frontend Structure
-
-```
-src/app/
-  core/
-    auth/         AuthService (signals), AuthGuard, AuthInterceptor, ErrorInterceptor
-    graphql/      provideApollo() — InMemoryCache with cursor-merge for products + reviews
-    http/         ErrorInterceptor (401 → silent refresh)
-  features/
-    products/     ProductListComponent (grid, search, category filter, load-more)
-                  ProductDetailComponent (header, rating distribution chart, ReviewListComponent)
-                  graphql/product.queries.ts
-    reviews/      ReviewListComponent (sort, rating-filter, write/edit CTA, load-more)
-                  ReviewFormComponent (create/edit, star picker, DUPLICATE_REVIEW handling)
-                  ReviewCardComponent (owner-only edit/delete, exports ReviewCardData)
-                  MyReviewsComponent (own reviews with product link, inline edit)
-                  review-command.service.ts (REST: create/update/delete)
-                  graphql/review.queries.ts
-    auth/         LoginComponent, RegisterComponent
-  shared/
-    components/   StarRatingComponent, LoadingSpinnerComponent, ErrorMessageComponent,
-                  PaginationComponent (Relay load-more)
-    models/       auth.models.ts, review.models.ts (REST request/response interfaces)
-    pipes/        TimeAgoPipe
-  generated/      graphql-codegen output (run: pnpm run codegen)
-```
-
----
-
-## Environment Variables
-
-### Backend `.env` (and optional `.env.local`)
-
-`.env.local` overrides `.env` for the same key — used for machine-specific values (e.g. Supabase URLs). Both files are gitignored; only `.env.example` is committed.
-
-```
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
-DIRECT_URL=postgresql://postgres:postgres@localhost:5432/reviews_dev
-JWT_SECRET=change-me-in-production
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
-CORS_ORIGIN=http://localhost:4200
-PORT=3000
-NODE_ENV=development
-```
-
-`DIRECT_URL` is required by the Prisma schema (`directUrl`). Local dev: same value as `DATABASE_URL`. Supabase: `DATABASE_URL` = pooled URL (port 6543), `DIRECT_URL` = direct URL (port 5432).
-
-### Frontend `.env`
-
-```
-API_URL=http://localhost:3000/api
-GRAPHQL_URL=http://localhost:3000/graphql
-```
-
-These files are developer reference only — the SPA reads API URLs from `window.__env` at runtime (`public/env.js`). The deploy workflow overwrites `public/env.js` with production values before building and deploying to Firebase Hosting.
-
----
-
-## Local Setup
+**Never commit directly to main.** Always work in feature branches.
 
 ```bash
-# Clone workspace with submodules
-git clone --recurse-submodules <workspace-url>
-cd cloudtalk_homework
-./scripts/setup.sh           # init submodules + pnpm install
+cd <repo>
+git checkout main
+git pull origin main
+git checkout -b feat/<kebab-case-description>
+```
 
-# Start database
-docker compose up -d
+**Branch naming:** `feat/<description>` or `fix/<description>`
 
-# Backend (new terminal)
+**Commit format:** `<type>(<scope>): <lower-case subject>`
+- Subject must be entirely lower-case (enforced by commitlint)
+- Types: `feat` `fix` `refactor` `test` `docs` `chore` `perf`
+- BE scopes: `auth` `reviews` `products` `db` `api` `health` `common`
+- FE scopes: `auth` `reviews` `products` `shared` `graphql` `fe`
+
+**PR creation:** Use `gh pr create` — see `.ai/skills/finish-task/SKILL.md`.
+
+---
+
+## Development Commands
+
+For the full reference, see `.ai/development.md`. Quick essentials:
+
+### Backend
+
+```bash
 cd cloudtalk_homework_be
-cp .env.example .env
-# Optional: create .env.local with machine-specific overrides (gitignored, wins over .env)
-pnpm install                 # also runs prisma generate via postinstall
-pnpm run migrate             # prisma migrate dev — local only, runs seed automatically
-# For production: cp .env.production.example .env.production, fill Supabase URLs, then:
-# pnpm run migrate:prod       # prisma migrate deploy against production
-pnpm run dev                 # http://localhost:3000
-
-# Frontend (new terminal)
-cd cloudtalk_homework_fe
-cp .env.example .env
-pnpm start                   # http://localhost:4200
+pnpm run dev             # start with hot reload
+pnpm test                # unit tests
+pnpm run test:e2e        # e2e tests (requires Postgres)
+pnpm run schema:export   # export schema.graphql
 ```
 
-Demo credentials (seeded): `user@demo.com / password123`, `admin@demo.com / password123`
-
----
-
-## Running Tests
+### Frontend
 
 ```bash
-# Backend — unit + e2e
-cd cloudtalk_homework_be && pnpm test && pnpm run test:e2e
+cd cloudtalk_homework_fe
+pnpm start               # ng serve on :4200
+pnpm run codegen         # generate typed GraphQL services
+pnpm test                # unit tests
+```
 
-# Frontend — unit
-cd cloudtalk_homework_fe && pnpm test
+### Quality Gate (run before every commit)
+
+```bash
+pnpm exec tsc --noEmit && pnpm run lint:check && pnpm test
 ```
 
 ---
 
-## Quality Gates
+## MCP Servers
 
-Before any commit:
-- `pnpm exec tsc --noEmit` — zero type errors
-- `pnpm run lint:check` — zero ESLint errors
-- `pnpm test` — all tests pass
+Two MCP servers provide AI agents with direct API and database access:
 
-In CI (GitHub Actions — `.github/workflows/ci.yml` in each repo):
+| Server | Tool | Description |
+|--------|------|-------------|
+| `cloudtalk-api` | `list`, `get_details`, `execute` | Wraps the running REST + GraphQL API |
+| `cloudtalk-db` | `query` | Read-only SQL against PostgreSQL (returns JSON) |
 
-**Backend CI** (`quality` job):
-- lint (`lint:check`), format check, `tsc --noEmit`
-- unit tests with coverage (`test:cov`)
-- Postgres service container for e2e tests (`test:e2e`)
-- schema freshness: `pnpm run schema:export` + `git diff --exit-code schema.graphql`
+Build before use: `cd mcp/<server> && pnpm install && pnpm run build`
 
-**Frontend CI** (`quality` job):
-- shallow-clone BE repo (`git clone --depth=1`) into sibling path for `schema.graphql` (ADR 011)
-- codegen (`pnpm run codegen`) — generates `src/generated/graphql.ts` from fetched schema
-- lint, format check, `tsc --noEmit` (app + spec tsconfigs)
-- unit tests via Angular CLI jest builder (`test:ci`)
+Config: `mcp.json` (workspace root) and `.cursor/mcp.json` (Cursor IDE).
 
-Both repos also have a `build` job gated on `quality`.
-
-**Deployment CI** (`deploy` job — `.github/workflows/deploy.yml`, runs on push to `main`):
-
-- **Backend**: authenticate to GCP via Workload Identity Federation → build + push Docker image to Artifact Registry → deploy to Cloud Run.
-- **Frontend**: shallow-clone BE schema → codegen → write `public/env.js` with production `window.__env` → `ng build` → deploy to Firebase Hosting.
+See [ADR 015](adr/015-mcp-api-wrapper.md) and [ADR 016](adr/016-mcp-db-reader.md).
 
 ---
 
-## Cross-Repo Change Protocol
+## Key Architecture Decisions
 
-When an API contract changes (new field, renamed type, new endpoint):
-
-1. Implement the change in `cloudtalk_homework_be/` and merge to `main`
-2. Run `pnpm run schema:export` in the BE — commit the updated `schema.graphql`
-3. Implement the FE change — CI will run `pnpm run codegen` against the new schema automatically
-4. Implement the FE change and merge to `main`
-
-Never merge a FE change that depends on an unmerged BE change.
+| # | Decision | ADR |
+|---|----------|-----|
+| 001 | TypeScript end-to-end: NestJS + Angular | [001](adr/001-stack.md) |
+| 003 | NestJS with Fastify adapter | [003](adr/003-backend-framework.md) |
+| 004 | PostgreSQL 16 | [004](adr/004-postgresql.md) |
+| 005 | Prisma ORM | [005](adr/005-orm.md) |
+| 006 | Self-managed JWT auth (bcrypt + httpOnly cookies) | [006](adr/006-jwt-auth.md) |
+| 007 | One review per user per product | [007](adr/007-one-review-per-user.md) |
+| 008 | Docker Compose for local dev | [008](adr/008-docker-compose.md) |
+| 009 | Hybrid REST + GraphQL (commands vs reads) | [009](adr/009-hybrid-rest-graphql.md) |
+| 010 | Two repos as git submodules | [010](adr/010-two-repo-structure.md) |
+| 011 | Contract ownership: BE exports schema, FE codegen | [011](adr/011-contract-ownership.md) |
+| 013 | Testing strategy (Jest + e2e) | [013](adr/013-testing-strategy.md) |
+| 014 | CI pipeline (GitHub Actions) | [014](adr/014-ci-pipeline.md) |
+| 015 | MCP API wrapper | [015](adr/015-mcp-api-wrapper.md) |
+| 016 | MCP DB reader | [016](adr/016-mcp-db-reader.md) |
 
 ---
 
-## Implementation Phases
+## Implementation Status
 
-Track progress here as phases complete. Update status and add links to key commits.
+All phases complete:
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Docker Compose, rewrite ADRs, update docs | **complete** |
-| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **complete** |
-| 2 | Auth module (register, login, refresh, logout, guards) | **complete** |
-| 3 | GraphQL setup + product queries with pagination | **complete** |
-| 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **complete** |
-| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **complete** |
-| 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **complete** |
-| 7 | Frontend auth flow (AuthService, interceptors, login/register) | **complete** |
-| 8 | Frontend features (product list/detail, review list/form/card) | **complete** |
-| 9 | CI/CD pipelines (GitHub Actions, quality gates) | **complete** |
-| 10 | Documentation finalization (READMEs, ADRs, trade-offs) | **complete** |
+| 0 | Docker Compose, ADRs, docs | **Complete** |
+| 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **Complete** |
+| 2 | Auth module (register, login, refresh, logout, guards) | **Complete** |
+| 3 | GraphQL setup + product queries with pagination | **Complete** |
+| 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **Complete** |
+| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **Complete** |
+| 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **Complete** |
+| 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | **Complete** |
+| 8 | Frontend features (product list/detail, review list/form/card) | **Complete** |
+| 9 | CI/CD pipelines (GitHub Actions, quality gates) | **Complete** |
+| 10 | Documentation finalization | **Complete** |
+| 11 | MCP tooling | **Complete** |
 
 ---
 
-## P0 / P1 / P2 Feature Scope
+## Agent Operating Guidelines
 
-**P0 (must ship):** auth, product list + detail, review CRUD, aggregates, pagination,
-error handling, health checks, seed data, unit + e2e tests, CI, READMEs.
-
-**P1 (high value):** helpful votes, "My Reviews" page, rating distribution chart,
-GraphQL codegen pipeline, OpenAPI spec, correlation ID middleware, rate limiting.
-
-**P2 (stretch):** moderation dashboard, Playwright smoke test, response caching,
-multi-stage Dockerfiles, REST type generation with openapi-typescript.
+- Read the relevant `.ai/rules/*.md` file before making changes
+- Follow commit message format strictly — subject must be entirely lower-case
+- Work only in the submodule that owns the concern you are changing
+- Never write backend logic in the frontend repo or vice versa
+- For GraphQL schema changes, read `.ai/skills/graphql-schema-sync/SKILL.md`
+- For cross-repo changes, read `.ai/skills/cross-repo-change/SKILL.md`
+- After architectural decisions, add an ADR and update `ARCHITECTURE.md`
+- After convention changes, update `WORKSPACE.md` and `.ai/rules/`
+- Use `gh` CLI for GitHub operations (PRs, issues)
+- Do not generate placeholder lorem ipsum — use realistic review/product data
 
 ---
 
-## Key Trade-offs (document more in README as implementation progresses)
+## Workspace Structure
 
-| Simplification | Production alternative |
-|---|---|
-| Denormalized `avg_rating` recalculated synchronously | Decouple via event/queue to avoid write amplification |
-| No shared types package (manual REST interface sync) | `openapi-typescript` generates FE types from OpenAPI spec |
-| Single-instance API (no Redis, no queue) | Add Redis for caching + rate limiting; read replicas for Postgres |
-| No E2E tests in MVP | Playwright critical-path smoke test (P1) |
-| No refresh token invalidation store | Token family tracking in DB or Redis for revocation |
+```
+cloudtalk_homework/
+├── AGENTS.md                    ← you are here
+├── ARCHITECTURE.md              ← system architecture, data model, API, CI/CD
+├── WORKSPACE.md                 ← developer onboarding, setup, conventions
+├── .ai/                         ← agent rules, skills, guides (agent-agnostic)
+│   ├── development.md
+│   ├── workflows.md
+│   ├── rules/
+│   └── skills/
+├── adr/                         ← Architecture Decision Records (001–016)
+├── cloudtalk_homework_be/       ← NestJS API (git submodule)
+├── cloudtalk_homework_fe/       ← Angular SPA (git submodule)
+├── mcp/
+│   ├── cloudtalk-api/           ← MCP: API wrapper
+│   └── cloudtalk-db/            ← MCP: read-only DB access
+├── scripts/                     ← setup helpers
+├── docker-compose.yml           ← Postgres 16 for local dev
+├── mcp.json                     ← MCP server config
+└── .cursor/                     ← IDE-specific config (mcp.json pointer)
+```
 
 ---
 
@@ -415,8 +329,8 @@ After any change, update the relevant file:
 |---|---|
 | Architectural decision | `adr/NNN-title.md` (new file) + `adr/README.md` (index row) |
 | Current system state | `ARCHITECTURE.md` |
-| Conventions, ports, env vars, workflow | `WORKSPACE.md` + this file |
-| Phase completed | Implementation Phases table in this file |
-| New P0/P1 item shipped | Move it to appropriate section above |
+| Conventions, ports, env vars | `WORKSPACE.md` + `.ai/rules/` |
+| New workflow or skill | `.ai/skills/<name>/SKILL.md` |
+| New coding pattern | `.ai/rules/<name>.md` |
 
-See `.cursor/skills/extend-agentic-docs/SKILL.md` for the full documentation maintenance protocol.
+See `.ai/skills/extend-agentic-docs/SKILL.md` for the full documentation maintenance protocol.

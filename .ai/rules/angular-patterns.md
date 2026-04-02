@@ -1,10 +1,6 @@
----
-description: Angular component and service patterns for the CloudTalk homework frontend.
-globs: cloudtalk_homework_fe/**/*.ts
-alwaysApply: false
----
-
 # Angular Patterns
+
+Applies to: `cloudtalk_homework_fe/**/*.ts`
 
 ## Components
 
@@ -38,7 +34,7 @@ Auth uses **self-managed JWT** — no Firebase. `AuthService` (`src/app/core/aut
   `isLoggedIn`, `currentUser`, `accessToken` (all `computed()` or `signal()`)
 - `initFromSession()` is called on app boot via `APP_INITIALIZER` in `app.config.ts`
 - On login/register, the server returns `{ accessToken, user }` and sets an httpOnly refresh cookie
-- `authInterceptor` (functional) attaches `Authorization: Bearer <token>` to every outgoing REST request
+- `authInterceptor` (functional) attaches `Authorization: Bearer` to all outgoing REST requests
 - `errorInterceptor` catches 401 responses and calls `POST /api/auth/refresh` (uses the httpOnly cookie);
   on success it retries the original request; on failure it clears the session
 

@@ -51,8 +51,9 @@ The workspace root holds shared infrastructure:
 | `mcp/cloudtalk-api/` | MCP server wrapping the REST + GraphQL API (see below) |
 | `mcp/cloudtalk-db/` | MCP server for direct read-only DB access via Prisma (see below) |
 | `ARCHITECTURE.md` | Current system state (stack, schema, API) |
-| `WORKSPACE.md` | This file — agent onboarding |
+| `WORKSPACE.md` | This file — developer + agent onboarding |
 | `AGENTS.md` | Agent entry point and implementation phases |
+| `.ai/` | Agent-agnostic rules, skills, guides (see `.ai/README.md`) |
 | `mcp.json` | MCP server config for agents; paths are workspace-relative |
 | `.cursor/mcp.json` | Same as `mcp.json` — Cursor loads this path for project MCP |
 
@@ -554,7 +555,7 @@ When an API contract changes (new field, renamed type, new endpoint):
 
 Never merge a FE change that depends on an unmerged BE change.
 
-See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
+See `.ai/skills/cross-repo-change/SKILL.md` for the full protocol.
 
 ---
 
@@ -581,12 +582,14 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 
 ## Agent Operating Guidelines
 
+- Read `AGENTS.md` first — it is the universal entry point for all AI agents
+- Read `.ai/rules/` for coding standards relevant to the file scope you are working in
+- Read `.ai/skills/` for multi-step workflow guides before starting complex tasks
 - Prefer editing existing files over creating new ones
-- Follow the commit message format strictly — messages are part of the documentation
+- Follow the commit message format strictly — subject must be entirely lower-case
 - Work only in the submodule that owns the concern you are changing
 - Never write backend logic in the frontend repo or vice versa
-- When adding a new domain feature, read `.cursor/skills/add-review-feature/SKILL.md`
-- When an API contract changes, read `.cursor/skills/cross-repo-change/SKILL.md`
+- Use `gh` CLI for GitHub operations (PRs, issues, checks)
 - After any significant architectural decision, add an ADR and update `ARCHITECTURE.md`
 - After any change to structure, ports, env vars, or conventions, update this file
 - Do not generate placeholder lorem ipsum — use realistic review/product data
