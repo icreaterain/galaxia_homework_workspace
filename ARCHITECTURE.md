@@ -41,6 +41,12 @@ aggregates). Both protocols share the same service layer. See [ADR 009](adr/009-
 | Database | PostgreSQL 16 | [004](adr/004-postgresql.md) |
 | Authentication | Self-managed JWT (bcrypt + access/refresh tokens) | [006](adr/006-jwt-auth.md) |
 | Local dev | Docker Compose (Postgres only) | [008](adr/008-docker-compose.md) |
+| Testing | Jest (unit + e2e BE), Jest via @angular-builders/jest (FE) | [013](adr/013-testing-strategy.md) |
+| CI | GitHub Actions (`quality` + `build` + `deploy` jobs, both repos) | [014](adr/014-ci-pipeline.md) |
+| Backend hosting | Google Cloud Run (managed, `us-central1`) | — |
+| Frontend hosting | Firebase Hosting (static SPA + rewrites to Cloud Run) | — |
+| Container registry | Google Artifact Registry (`us-central1`) | — |
+| GCP auth | Workload Identity Federation (no JSON service-account key) | [014](adr/014-ci-pipeline.md) |
 
 ---
 
@@ -149,11 +155,18 @@ type Review {
   author: ReviewAuthor!
   helpfulCount: Int!
   viewerHasVotedHelpful: Boolean!
+  product: ReviewProductInfo        # populated by myReviews query; null for Product.reviews
 }
 
 type ReviewAuthor {
   id: ID!
   displayName: String!
+}
+
+type ReviewProductInfo {
+  id: ID!
+  name: String!
+  imageUrl: String
 }
 
 type RatingDistribution {
@@ -298,7 +311,7 @@ src/
 
 ## Frontend Structure
 
-> **Phases 6–7 implemented.** Files marked `⬜ Phase 8` are stubs that will be filled in Phase 8.
+> **Phases 6–8 implemented.**
 
 ```
 src/
@@ -311,42 +324,51 @@ src/
       auth/
         auth.service.ts         # Signals: isLoggedIn, currentUser, accessToken;
                                 #   login/register/refresh/logout; sessionStorage persistence
-        auth.service.spec.ts    # ✅ Phase 7 — 16 unit tests; mocks Router to avoid navigation
+        auth.service.spec.ts    # 16 unit tests; mocks Router to avoid navigation
         auth.guard.ts           # Functional canActivate; reads isLoggedIn() signal;
                                 #   redirects to /auth/login?returnUrl=<original-path>
         auth.interceptor.ts     # Attaches Authorization: Bearer to all outgoing REST requests
       graphql/
-        graphql.provider.ts     # provideApollo() — InMemoryCache, cursor merge, HTTP link
+        graphql.provider.ts     # provideApollo() — importProvidersFrom(ApolloModule),
+                                #   InMemoryCache with cursor-merge for Query.products
+                                #   and Product.reviews; cache-and-network fetch policy
       http/
         error.interceptor.ts    # Catches 401, calls /api/auth/refresh, retries original request
     features/
       products/
-        product-list.component.ts   # ⬜ Phase 8 — stub placeholder
-        product-detail.component.ts # ⬜ Phase 8 — stub placeholder
+        product-list.component.ts   # Product grid (12/page); debounced search + category filter;
+                                    #   QueryRef.watchQuery + signals + ChangeDetectorRef;
+                                    #   first 4 images eager/high-priority, rest lazy
+        product-detail.component.ts # Product header, price, rating summary (avg + distribution
+                                    #   bar chart); embeds ReviewListComponent; refetches product
+                                    #   on review mutation to keep avgRating/reviewCount live
         graphql/
           product.queries.ts        # PRODUCT_LIST_QUERY, PRODUCT_DETAIL_QUERY,
                                     #   PRODUCT_REVIEWS_QUERY — gql documents
       reviews/
-        my-reviews.component.ts     # ⬜ Phase 8 — stub placeholder; auth-guarded route
-        review-list.component.ts    # ⬜ Phase 8 — not yet created
-        review-form.component.ts    # ⬜ Phase 8 — not yet created
-        review-card.component.ts    # ⬜ Phase 8 — not yet created
+        my-reviews.component.ts     # Auth-guarded; lists own reviews with product thumbnail/link;
+                                    #   inline edit form; load-more pagination
+        review-list.component.ts    # Review list for a product; sort + rating-filter controls;
+                                    #   "Write a review" / "Edit your review" gates; load-more
+        review-form.component.ts    # Dual-mode (create / edit); star picker + title + body;
+                                    #   inline validation; DUPLICATE_REVIEW error mapping
+        review-card.component.ts    # Single review card; edit/delete shown for owner only; OnPush
+                                    #   exports ReviewCardData interface for parent components
         review-command.service.ts   # REST: createReview, updateReview, deleteReview
         graphql/
-          review.queries.ts         # MY_REVIEWS_QUERY — gql document
+          review.queries.ts         # MY_REVIEWS_QUERY (includes product { id name imageUrl })
       auth/
-        login.component.ts          # ✅ Phase 7 — reactive form (email + password);
-                                    #   reads ?returnUrl and redirects after success;
+        login.component.ts          # Reactive form (email + password); reads ?returnUrl;
                                     #   inline field errors + API error banner + loading state
-        register.component.ts       # ✅ Phase 7 — reactive form (displayName + email + password);
+        register.component.ts       # Reactive form (displayName + email + password);
                                     #   redirects to /products after success
     shared/
       components/
         star-rating/
           star-rating.component.ts  # Interactive + readonly; emits ratingChange; OnPush
-        loading-spinner.component.ts
-        error-message.component.ts
-        pagination.component.ts     # Relay-style load-more
+        loading-spinner.component.ts  # size (sm/md/lg), label, fullPage inputs
+        error-message.component.ts    # message + optional retryable/retry emitter
+        pagination.component.ts       # Relay-style load-more; OnPush
       models/
         auth.models.ts              # LoginRequest, RegisterRequest, AuthUser, TokenResponse
         review.models.ts            # CreateReviewRequest, UpdateReviewRequest, ReviewResponse
@@ -365,6 +387,82 @@ src/
 - `avg_rating` and `review_count` are kept consistent by `ReviewsService` within the same transaction
 - REST endpoints own writes; GraphQL resolvers own reads — never cross the boundary
 - The backend is the single source of truth for all API contracts ([ADR 011](adr/011-contract-ownership.md))
+
+---
+
+## CI/CD
+
+Both submodule repos have `.github/workflows/ci.yml` (GitHub Actions). See [ADR 014](adr/014-ci-pipeline.md) for the rationale behind each decision.
+
+### Backend (`cloudtalk_homework_be`)
+
+**`quality` job** — runs on every push / PR to `main`, with a Postgres 16 service container:
+
+| Step | Command | Notes |
+|---|---|---|
+| Install | `pnpm install --frozen-lockfile` | `postinstall` runs `prisma generate` |
+| Lint | `pnpm run lint:check` | ESLint, no auto-fix |
+| Format | `pnpm run format:check` | Prettier check |
+| Type-check | `pnpm exec tsc --noEmit` | |
+| Unit tests | `pnpm run test:cov` | Jest with coverage |
+| Migrate | `prisma migrate deploy` | Applies migrations to the CI Postgres container |
+| E2E tests | `pnpm run test:e2e` | `maxWorkers: 1` — sequential to avoid shared-DB races |
+| Schema check | `pnpm run schema:export && git diff --exit-code schema.graphql` | Fails if `schema.graphql` not committed |
+
+**`build` job** — gated on `quality`; runs `nest build`.
+
+**`deploy` job** — runs on every push to `main` (also `workflow_dispatch`); builds and deploys to production:
+
+| Step | Detail |
+|---|---|
+| Authenticate to GCP | Workload Identity Federation via `google-github-actions/auth@v2` — no JSON key stored in secrets |
+| Build Docker image | Tags `$IMAGE:$SHA` + `$IMAGE:latest`; `IMAGE` = `us-central1-docker.pkg.dev/<project>/<repo>/api` |
+| Push to Artifact Registry | Both SHA and `latest` tags pushed |
+| Deploy to Cloud Run | `gcloud run deploy cloudtalk-be --image $IMAGE:$SHA ...`; app env vars / secrets set on the Cloud Run service directly |
+
+Required GitHub repo variables: `GCP_PROJECT_ID`, `GCP_AR_REPOSITORY`, `GCP_CLOUD_RUN_SERVICE`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`.
+
+### Frontend (`cloudtalk_homework_fe`)
+
+**`quality` job** — runs on every push / PR to `main`:
+
+| Step | Command | Notes |
+|---|---|---|
+| Install | `pnpm install --frozen-lockfile` | |
+| Fetch schema | `git clone --depth=1 <BE repo>` | Shallow clone into `../cloudtalk_homework_be/`; BE is source of truth (ADR 011) |
+| Codegen | `pnpm run codegen` | Generates `src/generated/graphql.ts`; required before type-check or tests |
+| Lint | `pnpm run lint:check` | |
+| Format | `pnpm run format:check` | |
+| Type-check app | `pnpm exec tsc --noEmit -p tsconfig.app.json` | |
+| Type-check tests | `pnpm exec tsc --noEmit -p tsconfig.spec.json` | |
+| Unit tests | `pnpm run test:ci` | `ng test --watch=false` via `@angular-builders/jest` |
+
+**`build` job** — gated on `quality`; runs `ng build`.
+
+**`deploy` job** — runs on every push to `main` (also `workflow_dispatch`); builds and deploys to production:
+
+| Step | Detail |
+|---|---|
+| Fetch schema | Same shallow BE clone as `quality` |
+| Codegen | `pnpm run codegen` |
+| Write `public/env.js` | Injects `window.__env` with `API_URL` and `GRAPHQL_URL` at build time; defaults to `https://cloudtalk-homework.web.app/api` and `.../graphql`; overridable via repo variables `API_URL` / `GRAPHQL_URL` |
+| Build | `pnpm run build` — output to `dist/cloudtalk_homework_fe/browser` |
+| Authenticate to GCP | Workload Identity Federation |
+| Deploy to Firebase Hosting | `firebase deploy --only hosting --project $FIREBASE_PROJECT_ID` |
+
+`firebase.json` rewrites `/api/**` → Cloud Run service `cloudtalk-be` and `/graphql` → same; all other paths → `index.html` (Angular HTML5 routing).
+
+Required GitHub repo variables: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `FIREBASE_PROJECT_ID`. Optional: `API_URL`, `GRAPHQL_URL` (override defaults).
+
+### Key CI environment
+
+| Variable | Value in CI | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/reviews_test` | Test DB |
+| `DIRECT_URL` | same | Required by Prisma schema |
+| `JWT_SECRET` | inline string (≥16 chars) | Satisfies Joi validation |
+| `NODE_ENV` | `test` | Disables verbose Prisma logging; suppresses `prisma:error` for expected P2002 |
+| `pnpm.onlyBuiltDependencies` | `["@prisma/client", "bcrypt", "prisma"]` | pnpm v10 blocks native build scripts by default |
 
 ---
 
@@ -387,12 +485,32 @@ NODE_ENV=development
 
 `DIRECT_URL` is required by `prisma/schema.prisma` (`directUrl = env("DIRECT_URL")`). For local Docker Postgres set it to the same value as `DATABASE_URL`. For Supabase, `DATABASE_URL` = pooled (PgBouncer, port 6543) and `DIRECT_URL` = direct Postgres (port 5432).
 
-### Frontend (`.env`)
+In production (Cloud Run) these are set directly on the service via `--set-env-vars` or Secret Manager; no `.env` file is used on the container. Set `CORS_ORIGIN` to the Firebase Hosting origin (e.g. `https://cloudtalk-homework.web.app`).
 
+### Frontend
+
+**Local dev (`.env`):**
 ```
 API_URL=http://localhost:3000/api
 GRAPHQL_URL=http://localhost:3000/graphql
 ```
+
+These `.env` files are never read at runtime — they are for developer reference only.
+
+**Production runtime (`public/env.js`):**
+
+The SPA reads API URLs from `window.__env` at runtime — injected by `public/env.js`, which is a static file loaded before `main.js` via a `<script src="env.js">` in `index.html`. For local dev the committed file points to `localhost:3000`. The deploy workflow overwrites it with production URLs before the Firebase Hosting deployment:
+
+```js
+(function (window) {
+  window.__env = {
+    API_URL: 'https://cloudtalk-homework.web.app/api',
+    GRAPHQL_URL: 'https://cloudtalk-homework.web.app/graphql',
+  };
+})(window);
+```
+
+Because Firebase Hosting rewrites `/api/**` and `/graphql` to the Cloud Run backend, the FE can use its own origin for API calls — there is no hard-coded backend URL in the production build.
 
 ---
 
@@ -408,6 +526,6 @@ GRAPHQL_URL=http://localhost:3000/graphql
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **Complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **Complete** |
 | 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | **Complete** |
-| 8 | Frontend features (product list/detail, review list/form/card) | Pending |
-| 9 | CI/CD pipelines (GitHub Actions, quality gates) | Pending |
+| 8 | Frontend features (product list/detail, review list/form/card) | **Complete** |
+| 9 | CI/CD pipelines (GitHub Actions, quality gates) | **Complete** |
 | 10 | Documentation finalization (READMEs, ADRs, trade-offs) | Pending |

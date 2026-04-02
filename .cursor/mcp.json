@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cloudtalk-api": {
+      "command": "node",
+      "args": [
+        "/Users/gennadiimariechev/Developer/cloudtalk_homework/mcp_service_wrapper/dist/index.js"
+      ],
+      "env": {
+        "BASE_URL": "http://localhost:3000",
+        "SCHEMA_PATH": "/Users/gennadiimariechev/Developer/cloudtalk_homework/cloudtalk_homework_be/schema.graphql"
+      }
+    }
+  }
+}

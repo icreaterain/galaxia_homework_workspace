@@ -27,3 +27,5 @@ Copy `000-template.md` when adding a new entry.
 | [011](011-contract-ownership.md) | Contract ownership: OpenAPI + GraphQL SDL | Decided |
 | [012](012-firebase-authentication.md) | Firebase Authentication (superseded) | Superseded by 006 |
 | [013](013-testing-strategy.md) | Testing Strategy: layers, scope, and coverage priorities | Decided |
+| [014](014-ci-pipeline.md) | CI Pipeline: GitHub Actions, pnpm v10 native deps, validation status codes | Decided |
+| [015](015-mcp-api-wrapper.md) | MCP Server as API Wrapper (list / get\_details / execute tools) | Decided |

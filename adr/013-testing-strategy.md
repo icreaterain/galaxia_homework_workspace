@@ -53,10 +53,13 @@ already follow this pattern — extend it to login/register/auth guard/intercept
 
 E2E tests boot `AppModule` against a real Postgres instance (provided by the GitHub Actions
 `services` container). Each test module covers one domain:
-- `app.e2e-spec.ts` — health endpoints
-- `auth.e2e-spec.ts` — register / login / refresh / logout
-- `reviews.e2e-spec.ts` *(planned)* — create / update / delete + aggregate recalc
-- `products.e2e-spec.ts` *(planned)* — GraphQL product + review queries with cursor pagination
+- `app.e2e-spec.ts` — health endpoints ✅
+- `auth.e2e-spec.ts` — register / login / refresh / logout ✅
+- `reviews.e2e-spec.ts` — create / update / delete + aggregate recalc ✅
+- `products.e2e-spec.ts` — GraphQL product + review queries with cursor pagination ✅
+
+E2E tests run with `"maxWorkers": 1` in `jest-e2e.json` — sequential execution to prevent
+parallel test suites from interfering with each other via the shared Postgres database.
 
 ### Level 4 — Smoke test (optional P2)
 
@@ -65,16 +68,18 @@ A single Playwright test that boots both apps and navigates the happy path
 
 ## Coverage Priorities (ordered by risk)
 
-### P0 — Must add before any new feature
+### P0 — Closed (all implemented as of Phase 9)
 
-| File | Test type | Reason |
+| File | Test type | Status |
 |---|---|---|
-| `products/products.service.ts` | Unit | Cursor pagination + filter logic has no coverage |
-| `reviews/reviews.controller.ts` | Isolated integration | Owner-check + envelope shape |
-| `auth/auth.controller.ts` | Isolated integration | Refresh cookie handling; partially in e2e but unit gap |
-| `common/pagination/cursor.util.ts` | Unit | Pure encode/decode — trivial but load-bearing |
-| FE `auth.interceptor.ts` | Isolated integration | Injects Bearer token on every request |
-| FE `error.interceptor.ts` | Isolated integration | 401 → silent refresh → retry is the hardest FE path |
+| `products/products.service.ts` | Unit | ✅ |
+| `reviews/reviews.controller.ts` | Isolated integration | ✅ |
+| `auth/auth.controller.ts` | Isolated integration | ✅ |
+| `common/pagination/cursor.util.ts` | Unit | ✅ |
+| FE `auth.interceptor.ts` | Isolated integration | ✅ |
+| FE `error.interceptor.ts` | Isolated integration | ✅ |
+| BE `reviews.e2e-spec.ts` | E2E | ✅ |
+| BE `products.e2e-spec.ts` | E2E | ✅ |
 
 ### P1 — Add alongside next feature work
 
@@ -90,8 +95,6 @@ A single Playwright test that boots both apps and navigates the happy path
 | FE `register.component.ts` | Isolated integration | Duplicate email error path |
 | FE `star-rating.component.ts` | Isolated integration | Emit on click, disabled mode |
 | FE `time-ago.pipe.ts` | Unit | Pure transform, boundary dates |
-| BE `reviews.e2e-spec.ts` | E2E | Full review lifecycle with aggregate recalc |
-| BE `products.e2e-spec.ts` | E2E | GraphQL cursor pagination |
 
 ### P2 — Stretch / tech-debt clean-up
 
@@ -116,9 +119,10 @@ The following files are **not** worth unit-testing individually — they contain
 | Simplification | Production alternative |
 |---|---|
 | No snapshot tests (Angular templates) | Playwright visual regression for critical pages |
-| Coverage % threshold not enforced in CI yet | Add `--coverageThreshold` to Jest config once P0 gaps are closed |
-| E2E tests share a single Postgres DB without full reset between suites | Use `beforeEach` transaction rollback or per-suite DB resets |
+| Coverage % threshold not enforced in CI yet | Add `--coverageThreshold` to Jest config once P1 gaps are closed |
+| E2E test files run sequentially (`maxWorkers: 1`) against a shared Postgres DB | Per-suite DB reset with transaction rollback (`savepoints`) or separate schemas per test file |
 | No contract (pact) tests between FE and BE | Apollo operation-level contract testing |
+| `ValidationPipe` errors return 422 — tests must explicitly set `errorHttpStatusCode` in the e2e `beforeAll` | Global pipe registered in `main.ts` is already correct; e2e TestBed must replicate it |
 
 ## Alternatives considered
 

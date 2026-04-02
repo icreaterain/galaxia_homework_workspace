@@ -74,7 +74,77 @@ Show user-facing errors via `ErrorMessageComponent` (`src/app/shared/components/
 - `provideApollo()` is called in `app.config.ts` and returns `EnvironmentProviders`
 - Query documents live in `features/<domain>/graphql/<domain>.queries.ts` as `gql` tagged templates
 - Typed query services live in `src/generated/graphql.ts` — run `pnpm run codegen` to regenerate
-- Use `Apollo.watchQuery()` in components or inject the generated typed service directly
+- **Inject the generated typed service** (e.g. `ProductListGQL`) — do not inject `Apollo` directly
+
+### `importProvidersFrom` is required for `ApolloModule`
+
+```typescript
+// ✅ correct — Apollo service is visible to lazy-loaded routes
+makeEnvironmentProviders([
+  importProvidersFrom(ApolloModule),
+  { provide: APOLLO_OPTIONS, useFactory: ..., deps: [HttpLink] },
+])
+
+// ❌ wrong — ApolloModule placed directly; Apollo service is NOT registered
+makeEnvironmentProviders([
+  ApolloModule,              // ← silent failure; injectables inside are not provided
+  { provide: APOLLO_OPTIONS, ... },
+])
+```
+
+Without `importProvidersFrom`, lazy-loaded components that inject a generated GQL service throw
+`NullInjectorError: No provider for _Apollo!` even though the provider array looks correct.
+
+### QueryRef + Signals + OnPush (the standard data-fetching pattern)
+
+Every data-fetching component uses this structure:
+
+```typescript
+// 1. Inject the generated GQL service, CDR, and a destroy Subject
+private readonly gql = inject(ProductListGQL);
+private readonly cdr = inject(ChangeDetectorRef);
+private readonly destroy$ = new Subject<void>();
+
+// 2. Signals for template state (OnPush-compatible)
+readonly loading = signal(true);
+readonly items = signal<NodeType[]>([]);
+readonly hasNextPage = signal(false);
+readonly endCursor = signal<string | null>(null);
+
+// 3. Watch query
+ngOnInit(): void {
+  this.queryRef = this.gql.watch({ first: 12 });
+  this.queryRef.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((result) => {
+    this.loading.set(false);
+    this.items.set(result.data.products.edges.map((e) => e.node));
+    this.cdr.markForCheck(); // ← always required when using OnPush + Apollo observable
+  });
+}
+ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+// 4. Refetch (filters changed)
+reload(): void { void this.queryRef.refetch({ first: 12, filter: ... }); }
+
+// 5. Load more
+onLoadMore(): void {
+  void this.queryRef.fetchMore({ variables: { after: this.endCursor() } });
+}
+```
+
+### Product Image Loading (LCP)
+
+The first row of a product grid is typically the LCP element. Use `eager`/`high-priority` for
+the first few cards and `lazy` for the rest to avoid NG0913 warnings:
+
+```html
+@for (product of products(); track product.id; let i = $index) {
+  <img
+    [src]="product.imageUrl"
+    [attr.loading]="i < 4 ? 'eager' : 'lazy'"
+    [attr.fetchpriority]="i < 4 ? 'high' : null"
+  />
+}
+```
 
 ## Reactive Forms
 

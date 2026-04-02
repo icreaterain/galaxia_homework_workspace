@@ -52,7 +52,10 @@ Never write backend logic in the frontend repo or vice versa.
 | Auth | JWT — access token (15 min, in-memory) + refresh token (7 days, httpOnly cookie) |
 | Logging | pino (via Fastify) |
 | Testing | Jest (both repos) |
-| CI | GitHub Actions |
+| CI | GitHub Actions (`quality` + `build` + `deploy` jobs per repo) |
+| Backend hosting | Google Cloud Run (managed, `us-central1`) |
+| Frontend hosting | Firebase Hosting (SPA + rewrites to Cloud Run) |
+| GCP auth | Workload Identity Federation (OIDC — no JSON keys in secrets) |
 | Local dev | Docker Compose (Postgres only) |
 
 Decisions not yet reached by implementation are marked **TBD** in `ARCHITECTURE.md`.
@@ -206,15 +209,23 @@ src/
 src/app/
   core/
     auth/         AuthService (signals), AuthGuard, AuthInterceptor, ErrorInterceptor
-    graphql/      Apollo Client provider
+    graphql/      provideApollo() — InMemoryCache with cursor-merge for products + reviews
+    http/         ErrorInterceptor (401 → silent refresh)
   features/
-    products/     ProductListComponent, ProductDetailComponent, product.queries.ts
-    reviews/      ReviewListComponent, ReviewFormComponent, ReviewCardComponent,
-                  review-command.service.ts, review.queries.ts
+    products/     ProductListComponent (grid, search, category filter, load-more)
+                  ProductDetailComponent (header, rating distribution chart, ReviewListComponent)
+                  graphql/product.queries.ts
+    reviews/      ReviewListComponent (sort, rating-filter, write/edit CTA, load-more)
+                  ReviewFormComponent (create/edit, star picker, DUPLICATE_REVIEW handling)
+                  ReviewCardComponent (owner-only edit/delete, exports ReviewCardData)
+                  MyReviewsComponent (own reviews with product link, inline edit)
+                  review-command.service.ts (REST: create/update/delete)
+                  graphql/review.queries.ts
     auth/         LoginComponent, RegisterComponent
   shared/
-    components/   StarRatingComponent, LoadingSpinnerComponent, PaginationComponent
-    models/       TypeScript interfaces for REST responses
+    components/   StarRatingComponent, LoadingSpinnerComponent, ErrorMessageComponent,
+                  PaginationComponent (Relay load-more)
+    models/       auth.models.ts, review.models.ts (REST request/response interfaces)
     pipes/        TimeAgoPipe
   generated/      graphql-codegen output (run: pnpm run codegen)
 ```
@@ -246,6 +257,8 @@ NODE_ENV=development
 API_URL=http://localhost:3000/api
 GRAPHQL_URL=http://localhost:3000/graphql
 ```
+
+These files are developer reference only — the SPA reads API URLs from `window.__env` at runtime (`public/env.js`). The deploy workflow overwrites `public/env.js` with production values before building and deploying to Firebase Hosting.
 
 ---
 
@@ -296,14 +309,29 @@ cd cloudtalk_homework_fe && pnpm test
 
 Before any commit:
 - `pnpm exec tsc --noEmit` — zero type errors
-- `pnpm run lint` — zero ESLint errors
+- `pnpm run lint:check` — zero ESLint errors
 - `pnpm test` — all tests pass
 
-In CI (GitHub Actions):
-- lint + typecheck + unit tests (both repos)
-- e2e tests against Postgres service container (BE only)
-- schema freshness check: `schema.graphql` must match what the backend generates
-- codegen freshness check: `src/generated/` must match the current schema
+In CI (GitHub Actions — `.github/workflows/ci.yml` in each repo):
+
+**Backend CI** (`quality` job):
+- lint (`lint:check`), format check, `tsc --noEmit`
+- unit tests with coverage (`test:cov`)
+- Postgres service container for e2e tests (`test:e2e`)
+- schema freshness: `pnpm run schema:export` + `git diff --exit-code schema.graphql`
+
+**Frontend CI** (`quality` job):
+- shallow-clone BE repo (`git clone --depth=1`) into sibling path for `schema.graphql` (ADR 011)
+- codegen (`pnpm run codegen`) — generates `src/generated/graphql.ts` from fetched schema
+- lint, format check, `tsc --noEmit` (app + spec tsconfigs)
+- unit tests via Angular CLI jest builder (`test:ci`)
+
+Both repos also have a `build` job gated on `quality`.
+
+**Deployment CI** (`deploy` job — `.github/workflows/deploy.yml`, runs on push to `main`):
+
+- **Backend**: authenticate to GCP via Workload Identity Federation → build + push Docker image to Artifact Registry → deploy to Cloud Run.
+- **Frontend**: shallow-clone BE schema → codegen → write `public/env.js` with production `window.__env` → `ng build` → deploy to Firebase Hosting.
 
 ---
 
@@ -334,8 +362,8 @@ Track progress here as phases complete. Update status and add links to key commi
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **complete** |
 | 7 | Frontend auth flow (AuthService, interceptors, login/register) | **complete** |
-| 8 | Frontend features (product list/detail, review list/form/card) | pending |
-| 9 | CI/CD pipelines (GitHub Actions, quality gates) | pending |
+| 8 | Frontend features (product list/detail, review list/form/card) | **complete** |
+| 9 | CI/CD pipelines (GitHub Actions, quality gates) | **complete** |
 | 10 | Documentation finalization (READMEs, ADRs, trade-offs) | pending |
 
 ---

@@ -48,9 +48,11 @@ The workspace root holds shared infrastructure:
 | `docker-compose.yml` | Postgres 16-alpine for local dev |
 | `scripts/` | setup.sh, submodule helpers |
 | `adr/` | Architecture Decision Records |
+| `mcp_service_wrapper/` | MCP server wrapping the API (see below) |
 | `ARCHITECTURE.md` | Current system state (stack, schema, API) |
 | `WORKSPACE.md` | This file — agent onboarding |
 | `AGENTS.md` | Agent entry point and implementation phases |
+| `.cursor/mcp.json` | Registers the MCP server with Cursor |
 
 After cloning: `git clone --recurse-submodules <url>` then `./scripts/setup.sh`.
 
@@ -479,6 +481,53 @@ In CI (GitHub Actions — `.github/workflows/ci.yml` in each submodule repo):
 
 ---
 
+## Deployment
+
+Both repos deploy on every `push` to `main` (also `workflow_dispatch`) via `.github/workflows/deploy.yml`.
+
+### Backend → Google Cloud Run
+
+The `deploy.yml` workflow:
+1. Authenticates to GCP via **Workload Identity Federation** (OIDC, `google-github-actions/auth@v2`) — no long-lived JSON key.
+2. Builds a multi-stage Docker image, pushes it to **Artifact Registry** (`us-central1`) with a commit-SHA tag.
+3. Deploys to **Cloud Run** using the SHA tag.
+
+Production environment variables (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, etc.) are set directly on the Cloud Run service (not baked into the image). Set `CORS_ORIGIN` to the Firebase Hosting origin (e.g. `https://cloudtalk-homework.web.app`).
+
+Required GitHub repo variables: `GCP_PROJECT_ID`, `GCP_AR_REPOSITORY`, `GCP_CLOUD_RUN_SERVICE`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`.
+
+### Frontend → Firebase Hosting
+
+The `deploy.yml` workflow:
+1. Shallow-clones the BE repo for `schema.graphql` (same pattern as CI).
+2. Runs `pnpm run codegen`.
+3. Writes `public/env.js` with production `window.__env` values (defaults: `https://cloudtalk-homework.web.app/api` and `.../graphql`; overridable via repo variables `API_URL` / `GRAPHQL_URL`).
+4. Runs `pnpm run build`.
+5. Authenticates to GCP via Workload Identity Federation.
+6. Deploys to **Firebase Hosting** via `firebase deploy --only hosting`.
+
+`firebase.json` rewrites `/api/**` and `/graphql` to the Cloud Run service `cloudtalk-be`, so the SPA hits its own origin for all API calls (no CORS preflight in production).
+
+Required GitHub repo variables: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `FIREBASE_PROJECT_ID`.
+
+### `public/env.js` — Runtime API Configuration
+
+The Angular SPA reads API base URLs from `window.__env` at runtime:
+
+```js
+// public/env.js — committed with localhost defaults, overwritten by deploy workflow
+(function (window) {
+  window.__env = {
+    API_URL: 'http://localhost:3000/api',
+    GRAPHQL_URL: 'http://localhost:3000/graphql',
+  };
+})(window);
+```
+
+Services fall back to `http://localhost:3000` if `window.__env` is absent — safe for tests and local dev. Never read `.env` at runtime; those files are developer documentation only.
+
+---
+
 ## Cross-Repo Change Protocol
 
 When an API contract changes (new field, renamed type, new endpoint):
@@ -497,6 +546,9 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 ## External Dependencies
 
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
+- **Google Cloud Run** — production backend hosting (`us-central1`, service `cloudtalk-be`)
+- **Google Artifact Registry** — Docker image store for Cloud Run deployments
+- **Firebase Hosting** — production frontend hosting; rewrites to Cloud Run for `/api/**` and `/graphql`
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
 - **No CDN** — product images use placeholder URLs in MVP
 - **`dotenv-cli`** (dev dep, BE repo) — invoked inline in `migrate:*`, `generate`, and

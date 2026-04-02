@@ -1,0 +1,25 @@
+{
+  "name": "mcp-service-wrapper",
+  "version": "1.0.0",
+  "description": "MCP server wrapping the CloudTalk Product Review API (REST + GraphQL)",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "start:dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "graphql": "^16.10.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
