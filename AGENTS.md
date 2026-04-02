@@ -331,7 +331,7 @@ Track progress here as phases complete. Update status and add links to key commi
 | 2 | Auth module (register, login, refresh, logout, guards) | **complete** |
 | 3 | GraphQL setup + product queries with pagination | **complete** |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **complete** |
-| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | pending |
+| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | pending |
 | 7 | Frontend auth flow (AuthService, interceptors, login/register) | pending |
 | 8 | Frontend features (product list/detail, review list/form/card) | pending |
