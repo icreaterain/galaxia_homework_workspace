@@ -287,10 +287,62 @@ No Firebase. No `localStorage`. Do not introduce NgRx or BehaviorSubject for aut
 ### Apollo Client
 
 `provideApollo()` (`src/app/core/graphql/graphql.provider.ts`) returns `EnvironmentProviders`.
-Cache policy: `fetchPolicy: 'cache-and-network'`. Cursor pagination merge is configured for
-`Product.reviews` (merges edges on subsequent `after` pages; resets on new `sort`/`filterByRating`).
+
+**Critical:** `ApolloModule` must be registered via `importProvidersFrom(ApolloModule)` inside
+`makeEnvironmentProviders([...])`. Placing `ApolloModule` directly (without `importProvidersFrom`)
+silently fails to register the `Apollo` service, causing `NullInjectorError: No provider for _Apollo!`
+on lazy-loaded routes that inject generated GQL services.
+
+Cache policy: `fetchPolicy: 'cache-and-network'`. Cursor pagination merge policies are configured for:
+- **`Query.products`** — `keyArgs: ['filter']`; merges edges on subsequent `after` fetches; resets on new filter
+- **`Product.reviews`** — `keyArgs: ['sort', 'filterByRating']`; same merge behaviour
+
+Both use the shared `paginatedMerge` helper in `graphql.provider.ts`.
 
 Reads `GRAPHQL_URL` from `window.__env?.GRAPHQL_URL` (runtime) falling back to `http://localhost:3000/graphql`.
+
+### Data-fetching Component Pattern (Phase 8)
+
+All data-fetching feature components (`ProductListComponent`, `ProductDetailComponent`,
+`ReviewListComponent`, `MyReviewsComponent`) use the same structure:
+
+```typescript
+// 1. Inject the generated GQL service (not Apollo directly)
+private readonly productListGQL = inject(ProductListGQL);
+private readonly cdr = inject(ChangeDetectorRef);
+private readonly destroy$ = new Subject<void>();
+
+// 2. State as signals — compatible with OnPush
+readonly loading = signal(true);
+readonly queryError = signal('');
+readonly items = signal<ItemType[]>([]);
+readonly hasNextPage = signal(false);
+readonly endCursor = signal<string | null>(null);
+
+// 3. Start a watchQuery and subscribe to valueChanges
+ngOnInit(): void {
+  this.queryRef = this.productListGQL.watch({ first: PAGE_SIZE });
+  this.queryRef.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((result) => {
+    this.loading.set(false);
+    if (result.errors?.length) { this.queryError.set(...); return; }
+    this.items.set(result.data.products.edges.map((e) => e.node));
+    this.hasNextPage.set(result.data.products.pageInfo.hasNextPage);
+    this.cdr.markForCheck();   // ← required because component uses OnPush
+  });
+}
+
+// 4. Destroy
+ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+// 5. Reload (sort/filter change)
+reload(): void { void this.queryRef.refetch({ first: PAGE_SIZE, filter: ... }); }
+
+// 6. Pagination
+onLoadMore(): void { void this.queryRef.fetchMore({ variables: { after: this.endCursor() } }); }
+```
+
+`ChangeDetectorRef.markForCheck()` is **mandatory** in every subscription callback when the
+component uses `OnPush` and updates signals inside a non-Angular zone (Apollo's observable).
 
 ### Environment Variables (Frontend)
 
@@ -301,6 +353,14 @@ GRAPHQL_URL=http://localhost:3000/graphql
 
 Set in `.env` (gitignored). `.env.example` is committed. Values can be overridden at runtime via
 `window.__env` (inject into `index.html` via a server-side script in production).
+
+**Production (Firebase Hosting → Cloud Run):** `cloudtalk_homework_fe/firebase.json` rewrites
+`/api/**` and `/graphql` to Cloud Run service `cloudtalk-be` in `us-central1`. The deploy workflow
+writes `public/env.js` with defaults `https://cloudtalk-homework.web.app/api` and
+`.../graphql` (overridable via GitHub repo variables `API_URL` / `GRAPHQL_URL`). One-time GCP:
+grant the Firebase Hosting service account **Cloud Run Invoker** on that service (Firebase console
+may prompt when first deploying rewrites). Set Cloud Run `CORS_ORIGIN` to the Hosting origin
+(e.g. `https://cloudtalk-homework.web.app`).
 
 ### Jest / Testing
 
@@ -333,10 +393,20 @@ providers: [
 | Component | Location | Notes |
 |---|---|---|
 | `StarRatingComponent` | `shared/components/star-rating/` | Interactive (emits `ratingChange`) or readonly; `OnPush` |
-| `LoadingSpinnerComponent` | `shared/components/` | `size` input (`sm`/`md`/`lg`), optional `label` |
-| `ErrorMessageComponent` | `shared/components/` | `message` + optional `retry` emitter |
-| `PaginationComponent` | `shared/components/` | Relay-style load-more; `OnPush` |
+| `LoadingSpinnerComponent` | `shared/components/` | `size` input (`sm`/`md`/`lg`), optional `label`, `fullPage` |
+| `ErrorMessageComponent` | `shared/components/` | `message` + optional `retryable` flag + `retry` emitter |
+| `PaginationComponent` | `shared/components/` | Relay-style load-more; shows count; `OnPush` |
 | `TimeAgoPipe` | `shared/pipes/` | Standalone pipe; formats ISO date strings |
+
+### Feature Review Components (Phase 8)
+
+| Component | Location | Notes |
+|---|---|---|
+| `ReviewCardComponent` | `features/reviews/` | Displays a single review; edit/delete shown only for owner; exports `ReviewCardData` interface; `OnPush` |
+| `ReviewFormComponent` | `features/reviews/` | Dual-mode create/edit; star picker + title + body; maps `DUPLICATE_REVIEW` error; exports `ReviewFormData` |
+| `ReviewListComponent` | `features/reviews/` | Full review list for a product; sort + rating-filter controls; "Write a review" CTA; load-more pagination |
+
+`ReviewListComponent` is self-contained — give it `[productId]` and listen to `(reviewsChanged)` to know when to refetch the parent product's aggregates.
 
 ---
 
@@ -349,9 +419,12 @@ Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 | `pnpm run dev` | Start dev server with watch mode (BE only) |
 | `pnpm start` | Start dev server (FE: `ng serve`) |
 | `pnpm run build` | Production build |
-| `pnpm test` | Run unit tests (Jest) |
+| `pnpm test` | Run unit tests in watch mode (Jest) |
+| `pnpm run test:ci` | Run unit tests once, no watch — used in FE CI (FE only) |
+| `pnpm run test:cov` | Run unit tests with coverage report (BE only) |
 | `pnpm run test:e2e` | Run integration/e2e tests (BE only) |
-| `pnpm run lint` | ESLint check |
+| `pnpm run lint:check` | ESLint check — no auto-fix, exits 1 on errors (used in CI) |
+| `pnpm run lint` | ESLint check with auto-fix |
 | `pnpm run format` | Prettier format (write) |
 | `pnpm run format:check` | Prettier check (no write, for CI) |
 | `pnpm run codegen` | Run graphql-codegen (FE only) |
@@ -361,8 +434,8 @@ Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 | `pnpm run migrate:prod` | `prisma migrate deploy` against production DB (requires `.env.production`, BE only) |
 | `pnpm run generate` | Regenerate Prisma Client after schema changes (BE only) |
 | `pnpm run seed` | Run seed script directly — env loaded via `load-env.ts` (BE only) |
-| `pnpm run with-env -- <cmd>` | Run any command with `.env` + `.env.local` overrides (BE Prisma CLI) |
-| `pnpm run with-env:prod -- <cmd>` | Run any command with `.env` + `.env.production` overrides (BE only) |
+| `pnpm exec dotenv -o -e .env -e .env.local -- <cmd>` | Run any command with `.env` + `.env.local` (BE; avoid nested `pnpm run … --` — it breaks `dotenv-cli`) |
+| `pnpm exec dotenv -o -e .env -e .env.production -- <cmd>` | Same with `.env.production` for prod DB (BE) |
 
 ---
 
@@ -385,14 +458,24 @@ cd cloudtalk_homework_fe && pnpm test
 
 Before any commit:
 - `pnpm exec tsc --noEmit` — zero type errors
-- `pnpm run lint` — zero ESLint errors
+- `pnpm run lint:check` — zero ESLint errors
 - `pnpm test` — all tests pass
 
-In CI (GitHub Actions):
-- lint + typecheck + unit tests (both repos)
-- e2e tests against Postgres service container (BE only)
-- schema freshness: `schema.graphql` must match backend output
-- codegen runs before tsc: `pnpm run codegen` is the first FE CI step, generating `src/generated/` from `schema.graphql`
+In CI (GitHub Actions — `.github/workflows/ci.yml` in each submodule repo):
+
+**Backend CI** (`quality` + `build` jobs):
+- lint · format check · `tsc --noEmit`
+- unit tests with coverage (`pnpm run test:cov`)
+- Postgres 16 service container for e2e tests (`pnpm run test:e2e`)
+- schema freshness check: `pnpm run schema:export` + `git diff --exit-code schema.graphql`
+- production build (`pnpm run build`) — runs after quality gate passes
+
+**Frontend CI** (`quality` + `build` jobs):
+- shallow-clone BE repo into the sibling `../cloudtalk_homework_be/` path so `schema.graphql` is available (BE is the single source of truth per ADR 011)
+- `pnpm run codegen` — generates `src/generated/graphql.ts` from the fetched schema
+- lint · format check · `tsc --noEmit -p tsconfig.app.json` · `tsc --noEmit -p tsconfig.spec.json`
+- unit tests via Angular CLI jest builder (`pnpm run test:ci`)
+- production build (`pnpm run build`) — runs after quality gate passes
 
 ---
 
@@ -416,8 +499,9 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
 - **No CDN** — product images use placeholder URLs in MVP
-- **`dotenv-cli`** (dev dep, BE repo) — used only by the `with-env` / `with-env:prod` helper
-  scripts that wrap Prisma CLI commands (e.g. `prisma migrate`, `prisma studio`)
+- **`dotenv-cli`** (dev dep, BE repo) — invoked inline in `migrate:*`, `generate`, and
+  `prisma:studio` scripts (`dotenv -o -e .env -e .env.local -- …`). Do not nest
+  `pnpm run <script> -- …` around another script that already ends with `--` for dotenv.
 - **`dotenv`** (dep, BE repo) — used by `src/config/load-env.ts`; imported as the first
   statement in `main.ts`, `prisma/seed.ts`, and `scripts/export-schema.ts` so that
   **`.env.local` always overrides `.env`** (and both override shell variables) without
