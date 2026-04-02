@@ -333,7 +333,7 @@ Track progress here as phases complete. Update status and add links to key commi
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **complete** |
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **complete** |
-| 7 | Frontend auth flow (AuthService, interceptors, login/register) | pending |
+| 7 | Frontend auth flow (AuthService, interceptors, login/register) | **complete** |
 | 8 | Frontend features (product list/detail, review list/form/card) | pending |
 | 9 | CI/CD pipelines (GitHub Actions, quality gates) | pending |
 | 10 | Documentation finalization (READMEs, ADRs, trade-offs) | pending |
