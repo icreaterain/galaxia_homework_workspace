@@ -298,7 +298,7 @@ src/
 
 ## Frontend Structure
 
-> **Phase 6 implemented.** Files marked `⬜ Phase 8` are stubs that will be filled in Phase 8.
+> **Phases 6–7 implemented.** Files marked `⬜ Phase 8` are stubs that will be filled in Phase 8.
 
 ```
 src/
@@ -311,7 +311,9 @@ src/
       auth/
         auth.service.ts         # Signals: isLoggedIn, currentUser, accessToken;
                                 #   login/register/refresh/logout; sessionStorage persistence
-        auth.guard.ts           # Functional canActivate; reads isLoggedIn() signal
+        auth.service.spec.ts    # ✅ Phase 7 — 16 unit tests; mocks Router to avoid navigation
+        auth.guard.ts           # Functional canActivate; reads isLoggedIn() signal;
+                                #   redirects to /auth/login?returnUrl=<original-path>
         auth.interceptor.ts     # Attaches Authorization: Bearer to all outgoing REST requests
       graphql/
         graphql.provider.ts     # provideApollo() — InMemoryCache, cursor merge, HTTP link
@@ -333,8 +335,11 @@ src/
         graphql/
           review.queries.ts         # MY_REVIEWS_QUERY — gql document
       auth/
-        login.component.ts          # ⬜ Phase 7 — stub placeholder
-        register.component.ts       # ⬜ Phase 7 — stub placeholder
+        login.component.ts          # ✅ Phase 7 — reactive form (email + password);
+                                    #   reads ?returnUrl and redirects after success;
+                                    #   inline field errors + API error banner + loading state
+        register.component.ts       # ✅ Phase 7 — reactive form (displayName + email + password);
+                                    #   redirects to /products after success
     shared/
       components/
         star-rating/
@@ -402,7 +407,7 @@ GRAPHQL_URL=http://localhost:3000/graphql
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **Complete** |
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **Complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **Complete** |
-| 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | Pending |
+| 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | **Complete** |
 | 8 | Frontend features (product list/detail, review list/form/card) | Pending |
 | 9 | CI/CD pipelines (GitHub Actions, quality gates) | Pending |
 | 10 | Documentation finalization (READMEs, ADRs, trade-offs) | Pending |

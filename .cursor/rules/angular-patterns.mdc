@@ -53,10 +53,6 @@ readonly authService = inject(AuthService);
 // ❌ DO NOT use Firebase — auth is self-managed
 ```
 
-## Reactive Forms
-
-Use `ReactiveFormsModule` for the review submission form. Template-driven forms are acceptable only for trivial single-field cases.
-
 ## Route Guards
 
 Use the functional `authGuard` from `src/app/core/auth/auth.guard.ts`. Apply it in `app.routes.ts`:
@@ -65,7 +61,9 @@ Use the functional `authGuard` from `src/app/core/auth/auth.guard.ts`. Apply it 
 { path: 'my-reviews', canActivate: [authGuard], loadComponent: () => ... }
 ```
 
-The guard reads `authService.isLoggedIn()` (signal, synchronous) and redirects to `/auth/login` if false.
+The guard reads `authService.isLoggedIn()` (signal, synchronous). On failure it redirects to
+`/auth/login?returnUrl=<original-path>`. `LoginComponent` reads `?returnUrl` and navigates there
+after a successful login (falling back to `/products`).
 
 ## Error Display
 
@@ -77,6 +75,21 @@ Show user-facing errors via `ErrorMessageComponent` (`src/app/shared/components/
 - Query documents live in `features/<domain>/graphql/<domain>.queries.ts` as `gql` tagged templates
 - Typed query services live in `src/generated/graphql.ts` — run `pnpm run codegen` to regenerate
 - Use `Apollo.watchQuery()` in components or inject the generated typed service directly
+
+## Reactive Forms
+
+Use `FormBuilder.nonNullable.group()` so `getRawValue()` returns non-nullable typed values.
+Angular's static `Validators.*` methods are safe as unbound references — ESLint is configured
+with `ignoreStatic: true` to allow this pattern:
+
+```typescript
+// ✅ correct
+readonly form = this.fb.nonNullable.group({
+  email: ['', [Validators.required, Validators.email]],
+  password: ['', [Validators.required, Validators.minLength(8)]],
+});
+const { email, password } = this.form.getRawValue();
+```
 
 ## Testing
 
@@ -90,4 +103,18 @@ await TestBed.configureTestingModule({
   imports: [MyComponent],
   providers: [provideRouter([]), provideHttpClient()],
 }).compileComponents();
+```
+
+- Services that call `router.navigate()` need a **mock Router**, not `provideRouter([])` — a real
+  router with no routes throws `NG04002` on any navigation attempt:
+
+```typescript
+const mockRouter = { navigate: jest.fn().mockResolvedValue(true) };
+TestBed.configureTestingModule({
+  providers: [
+    provideHttpClient(),
+    provideHttpClientTesting(),
+    { provide: Router, useValue: mockRouter },
+  ],
+});
 ```

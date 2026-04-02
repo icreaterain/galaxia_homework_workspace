@@ -279,6 +279,8 @@ provideApollo()                                     // Apollo Client + InMemoryC
 - **`authInterceptor`** — attaches `Authorization: Bearer <token>` to every outgoing request.
 - **`errorInterceptor`** — catches 401 on non-auth URLs, calls `POST /api/auth/refresh` (httpOnly cookie),
   then retries the original request. On refresh failure, clears session.
+- **`authGuard`** — redirects unauthenticated users to `/auth/login?returnUrl=<requested-path>`.
+  `LoginComponent` reads this param and navigates back to it after a successful login.
 
 No Firebase. No `localStorage`. Do not introduce NgRx or BehaviorSubject for auth state.
 
@@ -309,6 +311,22 @@ Set in `.env` (gitignored). `.env.example` is committed. Values can be overridde
   already been called".
 - `setup-jest.ts` is kept as a placeholder for custom global setup (mocks, matchers, etc.).
 - Components that inject `AuthService` need `provideHttpClient()` + `provideRouter([])` in their spec.
+- **Services that call `router.navigate()`** (e.g. `AuthService.logout()`) must receive a mock
+  Router to avoid `NG04002: Cannot match any routes` errors in unit tests. Use a value provider
+  instead of `provideRouter([])`:
+
+```typescript
+const mockRouter = { navigate: jest.fn().mockResolvedValue(true) };
+providers: [
+  provideHttpClient(),
+  provideHttpClientTesting(),
+  { provide: Router, useValue: mockRouter },
+]
+```
+
+- Angular's static `Validators.*` methods (e.g. `Validators.required`, `Validators.email`) are
+  safe to reference unbound in form definitions. The ESLint rule `@typescript-eslint/unbound-method`
+  is configured with `ignoreStatic: true` in `cloudtalk_homework_fe/.eslintrc.js` for this reason.
 
 ### Shared Components
 
