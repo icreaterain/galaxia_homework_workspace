@@ -388,7 +388,7 @@ GRAPHQL_URL=http://localhost:3000/graphql
 | 3 | GraphQL setup + product queries with pagination | **Complete** |
 | 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **Complete** |
 | 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **Complete** |
-| 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | Pending |
+| 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | **Complete** |
 | 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | Pending |
 | 8 | Frontend features (product list/detail, review list/form/card) | Pending |
 | 9 | CI/CD pipelines (GitHub Actions, quality gates) | Pending |
