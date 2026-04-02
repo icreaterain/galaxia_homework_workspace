@@ -97,8 +97,10 @@ export function getGqlQueryDetails(
 export function resolveSchemaPath(): string {
   // Walk up from the MCP package to find schema.graphql in the BE submodule
   const candidates = [
+    path.resolve(__dirname, '../../../../cloudtalk_homework_be/schema.graphql'),
     path.resolve(__dirname, '../../cloudtalk_homework_be/schema.graphql'),
     path.resolve(__dirname, '../../../cloudtalk_homework_be/schema.graphql'),
+    path.resolve(process.cwd(), '../../cloudtalk_homework_be/schema.graphql'),
     path.resolve(process.cwd(), '../cloudtalk_homework_be/schema.graphql'),
     path.resolve(process.cwd(), 'cloudtalk_homework_be/schema.graphql'),
   ];
