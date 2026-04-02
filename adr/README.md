@@ -26,3 +26,4 @@ Copy `000-template.md` when adding a new entry.
 | [010](010-two-repo-structure.md) | Two-repository structure (git submodules) | Decided |
 | [011](011-contract-ownership.md) | Contract ownership: OpenAPI + GraphQL SDL | Decided |
 | [012](012-firebase-authentication.md) | Firebase Authentication (superseded) | Superseded by 006 |
+| [013](013-testing-strategy.md) | Testing Strategy: layers, scope, and coverage priorities | Decided |
