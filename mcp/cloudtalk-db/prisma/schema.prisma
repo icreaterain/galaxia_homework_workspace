@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ReviewStatus {
+  published
+  flagged
+  removed
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  displayName  String   @map("display_name")
+  passwordHash String   @map("password_hash")
+  role         Role     @default(user)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  reviews     Review[]
+  reviewVotes ReviewVote[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?  @map("image_url")
+  category    String?
+  price       Decimal  @db.Decimal(10, 2)
+  avgRating   Decimal  @default(0) @map("avg_rating") @db.Decimal(3, 2)
+  reviewCount Int      @default(0) @map("review_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  reviews Review[]
+
+  @@index([category])
+  @@map("products")
+}
+
+model Review {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  productId String       @map("product_id")
+  rating    Int
+  title     String?
+  body      String
+  status    ReviewStatus @default(published)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  votes   ReviewVote[]
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([productId, status])
+  @@map("reviews")
+}
+
+model ReviewVote {
+  id        String   @id @default(uuid())
+  reviewId  String   @map("review_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([reviewId])
+  @@map("review_votes")
+}

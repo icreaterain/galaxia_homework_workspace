@@ -29,3 +29,4 @@ Copy `000-template.md` when adding a new entry.
 | [013](013-testing-strategy.md) | Testing Strategy: layers, scope, and coverage priorities | Decided |
 | [014](014-ci-pipeline.md) | CI Pipeline: GitHub Actions, pnpm v10 native deps, validation status codes | Decided |
 | [015](015-mcp-api-wrapper.md) | MCP Server as API Wrapper (list / get\_details / execute tools) | Decided |
+| [016](016-mcp-db-reader.md) | MCP Server for Direct Database Reads (read-only SQL `query` tool) | Decided |

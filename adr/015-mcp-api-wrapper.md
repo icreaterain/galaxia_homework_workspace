@@ -20,8 +20,9 @@ agents to:
 
 ## Decision
 
-Implement a standalone **MCP (Model Context Protocol) server** (`mcp_service_wrapper/`)
-in the workspace root. It wraps the running backend and exposes three tools over stdio:
+Implement a standalone **MCP (Model Context Protocol) server** (`mcp/cloudtalk-api/`,
+previously `mcp_service_wrapper/`) in the workspace root. It wraps the running backend
+and exposes three tools over stdio:
 
 | Tool | Description |
 |---|---|
@@ -29,7 +30,7 @@ in the workspace root. It wraps the running backend and exposes three tools over
 | `get_details` | Returns the full parameter, request body, and response schema for a given endpoint or query. Identified by the `id` returned from `list`. |
 | `execute` | Sends a request to the backend — REST (`type: "rest"`) or GraphQL (`type: "graphql"`). Accepts method, path, body, headers, and variables. |
 
-The MCP server is registered in `.cursor/mcp.json` so Cursor loads it automatically.
+The MCP server is configured in workspace-root `mcp.json` (portable, workspace-relative paths via `pnpm --dir`). The same definition is copied to `.cursor/mcp.json` so Cursor loads it automatically.
 
 ### OpenAPI Source
 
@@ -63,31 +64,30 @@ The `schema.graphql` file already exists in the BE repo root (exported by
 
 ## Consequences
 
-- **New package** `mcp_service_wrapper/` at the workspace root (not a git submodule)
+- **Package** lives at `mcp/cloudtalk-api/` (moved from `mcp_service_wrapper/` — see ADR 016)
 - **BE gets** `@nestjs/swagger@^7` and a `/docs-json` endpoint (no UI)
 - The MCP server requires the **BE to be running** to serve the OpenAPI spec; the GraphQL
   schema is read from disk and works offline
 - `SCHEMA_PATH` defaults to sibling `cloudtalk_homework_be/schema.graphql`; set the env
   var if the server runs from a different working directory
-- After any BE API change, run `pnpm run build` in `cloudtalk_homework_mcp/` to rebuild
+- After any BE API change, run `pnpm run build` in `mcp/cloudtalk-api/` to rebuild
 
 ## Configuration
 
-`.cursor/mcp.json` registers the server for Cursor:
+`mcp.json` (repo root) and `.cursor/mcp.json` register the server. Example:
 
 ```json
 {
   "mcpServers": {
     "cloudtalk-api": {
-      "command": "node",
-      "args": [".../mcp_service_wrapper/dist/index.js"],
+      "command": "pnpm",
+      "args": ["--dir", "mcp/cloudtalk-api", "exec", "node", "dist/index.js"],
       "env": {
-        "BASE_URL": "http://localhost:3000",
-        "SCHEMA_PATH": ".../cloudtalk_homework_be/schema.graphql"
+        "BASE_URL": "http://localhost:3000"
       }
     }
   }
 }
 ```
 
-For production: set `BASE_URL` to the Cloud Run URL.
+The MCP process cwd is the workspace root so `--dir mcp/cloudtalk-api` resolves correctly. `schema.graphql` is found via paths relative to `dist/`; override with `SCHEMA_PATH` only if needed. For production, set `BASE_URL` to the Cloud Run URL.

@@ -1,0 +1,30 @@
+{
+  "name": "mcp-db",
+  "version": "1.0.0",
+  "description": "MCP server for direct read-only database access (products, reviews, users, stats)",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "start:dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "generate": "prisma generate"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "@prisma/client": "^6.5.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "esbuild", "prisma"]
+  }
+}

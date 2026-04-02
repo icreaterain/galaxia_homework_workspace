@@ -25,12 +25,26 @@ is an Angular SPA that uses Angular's `HttpClient` for REST and Apollo Angular f
 cloudtalk_homework/            ← this workspace (git superproject)
 ├── cloudtalk_homework_be/     ← NestJS API (git submodule)
 ├── cloudtalk_homework_fe/     ← Angular SPA (git submodule)
+├── mcp/
+│   ├── cloudtalk-api/         ← MCP server: list / get_details / execute against the API
+│   └── cloudtalk-db/          ← MCP server: read-only SQL query tool direct to Postgres
 ├── adr/                       ← Architecture Decision Records
 ├── scripts/                   ← setup and submodule helpers
+├── mcp.json                   ← MCP server config (workspace-relative; copy or merge into your IDE)
 ├── AGENTS.md                  ← you are here
 ├── ARCHITECTURE.md            ← current system overview
 └── WORKSPACE.md               ← Cursor-specific agentic context
 ```
+
+**MCP:** [`mcp.json`](mcp.json) registers two servers (stdio); Cursor also reads [`.cursor/mcp.json`](.cursor/mcp.json) (same content). Build both before use:
+
+```bash
+cd mcp/cloudtalk-api && pnpm install && pnpm run build   # wraps REST + GraphQL API
+cd mcp/cloudtalk-db  && pnpm install && pnpm run build   # direct read-only DB queries
+```
+
+- **cloudtalk-api** requires the backend running at `BASE_URL` (default `http://localhost:3000`). Tools: `list`, `get_details`, `execute`. See [ADR 015](adr/015-mcp-api-wrapper.md).
+- **cloudtalk-db** requires `DATABASE_URL` (default: local Docker Compose Postgres). Single tool: `query` — accepts any read-only SQL and returns JSON. See [ADR 016](adr/016-mcp-db-reader.md).
 
 Work only in the submodule that owns the concern you are changing.
 Never write backend logic in the frontend repo or vice versa.

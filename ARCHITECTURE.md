@@ -20,6 +20,13 @@ For the reasoning behind each choice, see the [ADR log](adr/README.md).
                                          Prisma Client
                                               │
                                        [PostgreSQL :5432]
+                                              ▲
+                                              │ $queryRawUnsafe (read-only)
+                                    [MCP cloudtalk-db]
+
+[AI Agent / Cursor]
+    ├── cloudtalk-api MCP ──HTTP──▶ /api/* + /graphql  (list / get_details / execute)
+    └── cloudtalk-db  MCP ──────▶ PostgreSQL           (read-only SQL query → JSON)
 ```
 
 REST handles all command-oriented writes (auth, review mutations).
@@ -47,6 +54,8 @@ aggregates). Both protocols share the same service layer. See [ADR 009](adr/009-
 | Frontend hosting | Firebase Hosting (static SPA + rewrites to Cloud Run) | — |
 | Container registry | Google Artifact Registry (`us-central1`) | — |
 | GCP auth | Workload Identity Federation (no JSON service-account key) | [014](adr/014-ci-pipeline.md) |
+| Agent API tooling | MCP `cloudtalk-api` — wraps REST + GraphQL API (list / get_details / execute) | [015](adr/015-mcp-api-wrapper.md) |
+| Agent DB tooling | MCP `cloudtalk-db` — read-only SQL `query` tool returning JSON | [016](adr/016-mcp-db-reader.md) |
 
 ---
 
@@ -528,4 +537,5 @@ Because Firebase Hosting rewrites `/api/**` and `/graphql` to the Cloud Run back
 | 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | **Complete** |
 | 8 | Frontend features (product list/detail, review list/form/card) | **Complete** |
 | 9 | CI/CD pipelines (GitHub Actions, quality gates) | **Complete** |
-| 10 | Documentation finalization (READMEs, ADRs, trade-offs) | Pending |
+| 10 | Documentation finalization (READMEs, ADRs, trade-offs) | **Complete** |
+| 11 | MCP tooling (`cloudtalk-api` API wrapper + `cloudtalk-db` read-only SQL reader) | **Complete** |

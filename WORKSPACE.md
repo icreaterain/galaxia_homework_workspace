@@ -48,11 +48,23 @@ The workspace root holds shared infrastructure:
 | `docker-compose.yml` | Postgres 16-alpine for local dev |
 | `scripts/` | setup.sh, submodule helpers |
 | `adr/` | Architecture Decision Records |
-| `mcp_service_wrapper/` | MCP server wrapping the API (see below) |
+| `mcp/cloudtalk-api/` | MCP server wrapping the REST + GraphQL API (see below) |
+| `mcp/cloudtalk-db/` | MCP server for direct read-only DB access via Prisma (see below) |
 | `ARCHITECTURE.md` | Current system state (stack, schema, API) |
 | `WORKSPACE.md` | This file — agent onboarding |
 | `AGENTS.md` | Agent entry point and implementation phases |
-| `.cursor/mcp.json` | Registers the MCP server with Cursor |
+| `mcp.json` | MCP server config for agents; paths are workspace-relative |
+| `.cursor/mcp.json` | Same as `mcp.json` — Cursor loads this path for project MCP |
+
+**MCP setup:** After clone, run `pnpm install` and `pnpm run build` in each of the two MCP packages:
+
+```bash
+cd mcp/cloudtalk-api && pnpm install && pnpm run build
+cd mcp/cloudtalk-db  && pnpm install && pnpm run build
+```
+
+- **cloudtalk-api**: Wraps the running backend. Set `BASE_URL` env var to override (default `http://localhost:3000`). Optional: set `SCHEMA_PATH` if `schema.graphql` is not at `cloudtalk_homework_be/schema.graphql` relative to the workspace.
+- **cloudtalk-db**: Connects directly to Postgres. Set `DATABASE_URL` env var to the connection string (default: `postgresql://postgres:postgres@localhost:5432/reviews_dev`). Single tool: `query` — accepts any read-only SQL `SELECT` and returns full-fidelity JSON (no truncation). Rejects any statement containing write/DDL keywords before it reaches the DB.
 
 After cloning: `git clone --recurse-submodules <url>` then `./scripts/setup.sh`.
 
@@ -149,6 +161,7 @@ chore(workspace): add docker-compose.yml
 ### Never Edit
 
 - `dist/` in either repo — compiled output
+- `mcp/cloudtalk-api/dist/` and `mcp/cloudtalk-db/dist/` — gitignored compiled output; run `pnpm run build` in each package after clone
 - `src/generated/` in the FE repo — graphql-codegen output; gitignored, generated in CI and locally via `pnpm run codegen`
 - `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
 
@@ -170,6 +183,8 @@ chore(workspace): add docker-compose.yml
 | Testing | Jest (both repos) | — |
 | Repo structure | Two repos as git submodules | [010](adr/010-two-repo-structure.md) |
 | Contract ownership | OpenAPI + GraphQL SDL from backend | [011](adr/011-contract-ownership.md) |
+| Agent API tooling | MCP `cloudtalk-api` (list / get_details / execute) | [015](adr/015-mcp-api-wrapper.md) |
+| Agent DB tooling | MCP `cloudtalk-db` (read-only SQL `query`) | [016](adr/016-mcp-db-reader.md) |
 
 ---
 

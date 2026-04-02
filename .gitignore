@@ -1,3 +1,4 @@
 .pnpm-store
 .firebase
-mcp_service_wrapper/node_modules/
+node_modules/
+mcp/**/dist/
