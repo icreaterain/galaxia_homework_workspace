@@ -37,7 +37,7 @@ No writes, no DDL, no mutations.
 mcp/
 ├── cloudtalk-api/   ← API wrapper (ADR 015, moved from mcp_service_wrapper/)
 └── cloudtalk-db/    ← direct DB reader (this ADR)
-    ├── prisma/schema.prisma   ← mirrors BE schema (no binaryTargets, no directUrl)
+    ├── prisma/schema.prisma   ← symlink to `cloudtalk_homework_be/prisma/schema.prisma`
     ├── src/
     │   ├── index.ts
     │   └── tools/
@@ -47,17 +47,19 @@ mcp/
 
 ## Technology Choices
 
-- **`@prisma/client@^6`** — same major version as the backend; own schema copy so the MCP package is self-contained
-- **Own `prisma/schema.prisma`** — mirrors BE models without `binaryTargets` (native only) and without `directUrl` (no migrations needed)
+- **`@prisma/client@^6`** — same major version as the backend; client is generated into this package’s `node_modules` while the schema file is a symlink to the backend’s `prisma/schema.prisma` (no duplicate models)
+- **`prisma/schema.prisma`** — symbolic link to `cloudtalk_homework_be/prisma/schema.prisma` so `prisma generate` stays aligned with the API automatically (`binaryTargets`, `directUrl`, and migrations stay owned by the BE)
 - **`pnpm.onlyBuiltDependencies`** — enables Prisma engine postinstall scripts without interactive `pnpm approve-builds`
 - **CommonJS** — consistent with `cloudtalk-api` to avoid ESM/CJS interop
 
-## Schema Sync
+## Schema sync
 
-The Prisma schema in `mcp/cloudtalk-db/prisma/schema.prisma` is a copy of the BE schema (minus deployment-specific settings). When BE models change:
+The MCP does not maintain a separate schema file. After backend Prisma schema or model changes, regenerate the client in this package:
 
-1. Update `mcp/cloudtalk-db/prisma/schema.prisma` to match
-2. Run `pnpm install` (triggers `prisma generate` via postinstall) and `pnpm run build` in `mcp/cloudtalk-db/`
+1. `cd mcp/cloudtalk-db && pnpm run generate`
+2. `pnpm run build` (if TypeScript types need to match generated client)
+
+The schema path is a symbolic link; on Windows, ensure Git checks out symlinks (`core.symlinks` / Developer Mode) or recreate the link to `cloudtalk_homework_be/prisma/schema.prisma` if the file appears as plain text.
 
 ## Configuration
 
