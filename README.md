@@ -220,6 +220,38 @@ See [ADR 014](adr/014-ci-pipeline.md) for the full pipeline rationale.
 
 ---
 
+## AI / MCP Tooling
+
+The workspace ships two [Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers that give AI assistants direct access to the running API and the database:
+
+| Server | Location | What it exposes |
+|--------|----------|-----------------|
+| `cloudtalk-api` | `mcp/cloudtalk-api/` | REST + GraphQL API — list endpoints, call them, inspect responses |
+| `cloudtalk-db` | `mcp/cloudtalk-db/` | Read-only SQL queries against PostgreSQL |
+
+### Building the MCP servers
+
+The servers are TypeScript projects that must be compiled before use. `./scripts/setup.sh` does this automatically as part of the normal workspace setup. To build them in isolation:
+
+```bash
+cd mcp/cloudtalk-api && pnpm install && pnpm run build
+cd mcp/cloudtalk-db  && pnpm install && pnpm run build
+```
+
+### Connecting your AI assistant
+
+The workspace-level config lives in `mcp.json` at the repository root. Point your AI client at that file — the exact step depends on your tool:
+
+| Client | How to register |
+|--------|----------------|
+| **Cursor** | Settings → MCP → add server → point to `mcp.json` (or copy the server entries into your user-level `~/.cursor/mcp.json`) |
+| **Claude Desktop** | `claude_desktop_config.json` → `mcpServers` → copy the entries from `mcp.json` |
+| **Other MCP-compatible clients** | Consult the client docs; the `mcp.json` format follows the standard MCP server configuration schema |
+
+The servers expect the backend and database to be running locally (steps 2–3 of Quick Start above). The `BASE_URL` and `DATABASE_URL` values in `mcp.json` match the default local dev environment and can be overridden via environment variables if your setup differs.
+
+---
+
 ## Documentation
 
 | File | Purpose |

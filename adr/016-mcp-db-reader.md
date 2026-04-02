@@ -37,7 +37,7 @@ No writes, no DDL, no mutations.
 mcp/
 ├── cloudtalk-api/   ← API wrapper (ADR 015, moved from mcp_service_wrapper/)
 └── cloudtalk-db/    ← direct DB reader (this ADR)
-    ├── prisma/schema.prisma   ← symlink to `cloudtalk_homework_be/prisma/schema.prisma`
+    ├── prisma/schema.prisma   ← symlink → cloudtalk_homework_be/prisma/schema.prisma
     ├── src/
     │   ├── index.ts
     │   └── tools/
@@ -47,19 +47,17 @@ mcp/
 
 ## Technology Choices
 
-- **`@prisma/client@^6`** — same major version as the backend; client is generated into this package’s `node_modules` while the schema file is a symlink to the backend’s `prisma/schema.prisma` (no duplicate models)
-- **`prisma/schema.prisma`** — symbolic link to `cloudtalk_homework_be/prisma/schema.prisma` so `prisma generate` stays aligned with the API automatically (`binaryTargets`, `directUrl`, and migrations stay owned by the BE)
+- **`@prisma/client@^6`** — same major version as the backend
+- **Symlinked `prisma/schema.prisma`** — `mcp/cloudtalk-db/prisma/schema.prisma` is a symlink to `cloudtalk_homework_be/prisma/schema.prisma`; Prisma discovers the schema at its apparent path so it resolves `@prisma/client` from the MCP's own `node_modules`, avoiding any version mismatch with the BE
 - **`pnpm.onlyBuiltDependencies`** — enables Prisma engine postinstall scripts without interactive `pnpm approve-builds`
 - **CommonJS** — consistent with `cloudtalk-api` to avoid ESM/CJS interop
 
-## Schema sync
+## Schema Sync
 
-The MCP does not maintain a separate schema file. After backend Prisma schema or model changes, regenerate the client in this package:
+`mcp/cloudtalk-db/prisma/schema.prisma` is a symlink to the BE schema — there is no copy to maintain. When BE models change:
 
-1. `cd mcp/cloudtalk-db && pnpm run generate`
-2. `pnpm run build` (if TypeScript types need to match generated client)
-
-The schema path is a symbolic link; on Windows, ensure Git checks out symlinks (`core.symlinks` / Developer Mode) or recreate the link to `cloudtalk_homework_be/prisma/schema.prisma` if the file appears as plain text.
+1. Update `cloudtalk_homework_be/prisma/schema.prisma` as normal
+2. Run `pnpm run generate` and `pnpm run build` in `mcp/cloudtalk-db/`
 
 ## Configuration
 
@@ -90,11 +88,11 @@ For production: set `DATABASE_URL` to the Supabase direct URL (port 5432).
 | Entity-specific tools (list_products, get_product, …) | Each tool only covers one model; an agent needs SQL anyway for JOINs, aggregates, or ad-hoc analysis — a raw `query` tool is strictly more powerful |
 | Raw `pg` client with SQL strings | Verbose; no type safety on the host side; Prisma already present |
 | GraphQL queries with extended schema | Would require BE changes and API to be running |
-| Shared Prisma client from BE submodule | Couples MCP to BE's `node_modules`; fragile path dependency |
+| Shared Prisma client from BE submodule | Couples MCP to BE's `node_modules`; fragile path dependency — the symlink approach shares the schema *content* only; each package keeps its own `node_modules` and Prisma version |
 
 ## Consequences
 
 - **New package** `mcp/cloudtalk-db/` at workspace root
 - Both MCP packages now live under `mcp/`; old `mcp_service_wrapper/` directory removed
 - Requires `DATABASE_URL` to point to a running Postgres instance
-- Schema copy must be kept in sync with BE schema when models change
+- No separate schema copy — `mcp/cloudtalk-db/prisma/schema.prisma` is a symlink; updating the BE schema automatically updates the MCP schema
