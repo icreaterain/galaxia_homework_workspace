@@ -15,11 +15,29 @@ BE scopes: `auth` `reviews` `products` `db` `api` `health` `common`
 FE scopes: `auth` `reviews` `products` `shared` `graphql` `fe`
 Workspace scopes: `workspace` `docs` `adr`
 
+### Subject must be entirely lower-case — no exceptions
+
+`commitlint` enforces `subject-case: lower-case` in both repos. Every character in
+the subject line must be lowercase, including acronyms and class/type names.
+
 ```
-feat(reviews): add star rating to review submission form
-fix(auth): correct refresh token rotation on concurrent requests
-docs(adr): add ADR 009 hybrid REST+GraphQL
+# ✅ CORRECT
+feat(auth): implement jwt auth with silent refresh
+fix(api): add missing cors header for graphql endpoint
+refactor(reviews): extract aggregate recalc into helper
+docs(adr): add adr 009 hybrid rest+graphql
+
+# ❌ WRONG — commit will be rejected
+feat(auth): implement JWT auth with silent refresh    ← "JWT" uppercase
+fix(api): fix AuthService initialization             ← "AuthService" uppercase
+feat(fe): add ReviewFormComponent                    ← "ReviewFormComponent" uppercase
 ```
+
+When writing subjects, convert:
+- Acronyms: `JWT` → `jwt`, `API` → `api`, `URL` → `url`, `REST` → `rest`, `GraphQL` → `graphql`
+- Class/component names: `AuthService` → `auth service`, `ReviewForm` → `review form`
+
+The body lines (after the blank line) are not checked — class names there are fine.
 
 ## File Naming
 
