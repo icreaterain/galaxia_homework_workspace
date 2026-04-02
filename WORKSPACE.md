@@ -87,7 +87,7 @@ cd cloudtalk_homework_be
 cp .env.example .env
 # Optional: create .env.local with overrides (e.g. Supabase URLs) — gitignored, wins over .env
 pnpm install             # also runs prisma generate via postinstall
-pnpm run migrate         # prisma migrate dev — creates schema + runs seed
+pnpm run migrate:local   # prisma migrate dev — creates schema + runs seed automatically
 pnpm run dev             # http://localhost:3000
 
 # Frontend (separate terminal)
@@ -177,46 +177,65 @@ chore(workspace): add docker-compose.yml
 - Pagination uses **Relay-style cursor connections** (`first`/`after`, `edges`/`pageInfo`).
 - All GraphQL read paths live in resolvers; all write paths live in REST controllers.
   Never add mutations to the GraphQL schema (the hybrid split is intentional).
-- `@CurrentUser()` decorator works in both REST (`req.user`) and GraphQL
-  (`GqlExecutionContext`) contexts — use `GqlAuthGuard` (already in `src/auth/guards/`)
-  on resolver methods that require authentication.
+- **`@CurrentUser()`** is REST-only — reads `req.user` via `switchToHttp()`.
+  **`@GqlCurrentUser()`** is for GraphQL resolvers — reads user from `GqlExecutionContext`.
+  Both are in `src/common/decorators/`. Use `@UseGuards(GqlAuthGuard)` on any resolver
+  method that requires authentication (e.g. `myReviews`).
+- **`HttpExceptionFilter`** (global) checks `host.getType() === 'graphql'` and re-throws
+  without calling `reply.status()` — Apollo formats the error itself.
 - The `schema.graphql` file is the contract artefact — export with `pnpm run schema:export`
   in the BE repo, then regenerate FE types with `pnpm run codegen` in the FE repo.
 
-### GraphQLModule Registration (Phase 3)
+### Security Headers and Rate Limiting (Phase 5)
 
-Register in `AppModule` with the Apollo driver:
+`@fastify/helmet` is registered in `main.ts` (CSP disabled in non-production to allow Apollo Sandbox).
 
-```typescript
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { GraphQLModule } from '@nestjs/graphql';
+`ThrottlerModule` is registered globally in `AppModule` with a 100 req/min default. Stricter
+limits are applied per-endpoint via `@Throttle()`:
 
-GraphQLModule.forRoot<ApolloDriverConfig>({
-  driver: ApolloDriver,
-  autoSchemaFile: true,
-  sortSchema: true,
-  context: ({ request }: { request: unknown }) => ({ req: request }),
-})
-```
+| Endpoint | Limit |
+|---|---|
+| `POST /api/auth/register` | 5 req/min |
+| `POST /api/auth/login` | 10 req/min |
+| `POST /api/products/:id/reviews` | 20 req/min |
 
-**Dependency versions (pinned for NestJS v10 compatibility):**
-- `@nestjs/graphql@^12` — v13+ requires NestJS v11
-- `@apollo/server@^4` — v5+ requires NestJS v11
-- `graphql@^16` — already required by v12
+Auth and review controllers use `ThrottlerBehindProxyGuard` (reads real IP from `X-Forwarded-For`).
 
-Both packages are already in `package.json`; no additional install needed for Phase 3.
+### Correlation IDs (Phase 5)
+
+`CorrelationIdMiddleware` (applied globally via `AppModule.configure`) generates a UUID4
+correlation ID per request or forwards `X-Correlation-ID` if the header is already present.
+The ID is attached to the raw Node request and echoed back in the response header.
+
+`LoggingInterceptor` (global, HTTP only) logs `→` on entry and `←` on completion/error,
+including method, URL, duration in ms, and the correlation ID.
+
+### GraphQLModule Registration
+
+Already registered in `AppModule`. Relevant packages (pinned to NestJS v10):
+
+| Package | Version | Note |
+|---|---|---|
+| `@nestjs/graphql` | `^12` | v13+ requires NestJS v11 |
+| `@nestjs/apollo` | `^12` | Apollo driver adapter |
+| `@apollo/server` | `^4` | v5+ requires NestJS v11 |
+| `@as-integrations/fastify` | `^2` | Fastify integration for Apollo v4 |
+| `graphql` | `^16` | peer dep |
 
 ### Cursor Pagination Pattern
 
-Relay-style cursor connections. Cursor = base64(`createdAt` ISO string).
-Pagination utilities live in `src/common/pagination/` (created in Phase 3).
+Relay-style cursor connections. Cursor = opaque base64 JSON encoding the **row ID**
+(`{ id: "uuid" }`). Utilities: `encodeCursor(id)` / `decodeCursor(cursor)` in
+`src/common/pagination/cursor.util.ts`.
 
 ```
-ProductConnection { edges: [ProductEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
-PageInfo          { hasNextPage: Boolean!, endCursor: String }
+XxxConnection { edges: [XxxEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
+XxxEdge       { node: Xxx!, cursor: String! }
+PageInfo      { hasNextPage: Boolean!, hasPreviousPage: Boolean!,
+                startCursor: String, endCursor: String }
 ```
 
-Apply the same pattern for `ReviewConnection` (Phase 4) and `MyReviewsConnection`.
+Both `ProductConnection` and `ReviewConnection` follow this pattern.
 
 ### GraphQL Codegen Workflow
 
@@ -248,11 +267,13 @@ Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 | `pnpm run format:check` | Prettier check (no write, for CI) |
 | `pnpm run codegen` | Run graphql-codegen (FE only) |
 | `pnpm run schema:export` | Export schema.graphql (BE only) |
-| `pnpm run migrate` | `prisma migrate dev` — local dev (creates migration + applies, BE only) |
-| `pnpm run migrate:deploy` | `prisma migrate deploy` — apply committed migrations to local DB (no dev prompts) |
-| `pnpm run migrate:prod` | `prisma migrate deploy` against production — requires `.env.production` with Supabase URLs (BE only) |
+| `pnpm run migrate:local` | `prisma migrate dev` — local dev (creates migration + runs seed, BE only) |
+| `pnpm run migrate:deploy` | `prisma migrate deploy` — apply migrations to local DB without prompts |
+| `pnpm run migrate:prod` | `prisma migrate deploy` against production DB (requires `.env.production`, BE only) |
 | `pnpm run generate` | Regenerate Prisma Client after schema changes (BE only) |
-| `pnpm run seed` | Run seed script directly (BE only; also runs automatically after `migrate`) |
+| `pnpm run seed` | Run seed script directly — env loaded via `load-env.ts` (BE only) |
+| `pnpm run with-env -- <cmd>` | Run any command with `.env` + `.env.local` overrides (BE Prisma CLI) |
+| `pnpm run with-env:prod -- <cmd>` | Run any command with `.env` + `.env.production` overrides (BE only) |
 
 ---
 
@@ -306,8 +327,15 @@ See `.cursor/skills/cross-repo-change/SKILL.md` for the full protocol.
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))
 - **No CDN** — product images use placeholder URLs in MVP
-- **`dotenv-cli`** (dev dep, BE repo) — loads `.env` + `.env.local` (or `.env.production`) for Prisma CLI scripts; uses `-o` flag so later files override earlier ones
-- **`@nestjs/graphql@^12` + `@apollo/server@^4` + `graphql@^16`** (BE repo) — pinned to NestJS v10-compatible versions; already installed, used by `GqlAuthGuard` and `GraphQLModule` (Phase 3)
+- **`dotenv-cli`** (dev dep, BE repo) — used only by the `with-env` / `with-env:prod` helper
+  scripts that wrap Prisma CLI commands (e.g. `prisma migrate`, `prisma studio`)
+- **`dotenv`** (dep, BE repo) — used by `src/config/load-env.ts`; imported as the first
+  statement in `main.ts`, `prisma/seed.ts`, and `scripts/export-schema.ts` so that
+  **`.env.local` always overrides `.env`** (and both override shell variables) without
+  needing `dotenv-cli` on every npm script
+- **`@nestjs/graphql@^12` + `@nestjs/apollo@^12` + `@apollo/server@^4` +
+  `@as-integrations/fastify@^2` + `graphql@^16`** (BE repo) — pinned to NestJS v10-compatible
+  versions; already installed and wired up in `AppModule`
 
 ---
 

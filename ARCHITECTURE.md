@@ -170,7 +170,7 @@ Cursor encodes the sort key as a base64 opaque string.
 
 ---
 
-## GraphQL Setup (Phase 3)
+## GraphQL Setup
 
 `GraphQLModule` is registered in `AppModule` using the Apollo driver (code-first):
 
@@ -179,46 +179,52 @@ GraphQLModule.forRoot<ApolloDriverConfig>({
   driver: ApolloDriver,
   autoSchemaFile: true,          // generates schema.graphql in-memory; use path for CI export
   sortSchema: true,
-  context: ({ request }) => ({ req: request }),  // exposes req for GqlAuthGuard
+  context: ({ request }) => ({ req: request }),  // exposes req for GqlAuthGuard / GqlCurrentUser
 })
 ```
 
 **Key decisions:**
-- `@nestjs/graphql@^12` + `@apollo/server@^4` — pinned to NestJS v10-compatible versions
-  (v13 / Apollo v5 require NestJS v11+)
+- `@nestjs/graphql@^12` + `@apollo/server@^4` + `@nestjs/apollo@^12` + `@as-integrations/fastify@^2`
+  — pinned to NestJS v10-compatible versions (v13 / Apollo v5 require NestJS v11+)
 - `autoSchemaFile: true` during development; `pnpm run schema:export` writes `schema.graphql`
   to disk for the FE codegen pipeline
-- `GqlAuthGuard` (already in `src/auth/guards/`) reads the request from `GqlExecutionContext`
+- `GqlAuthGuard` (in `src/auth/guards/`) reads the request from `GqlExecutionContext`
   and delegates to the same `jwt` Passport strategy used by REST guards
-- All GraphQL reads are unauthenticated by default; individual resolvers or fields apply
-  `@UseGuards(GqlAuthGuard)` as needed
+- All GraphQL reads are unauthenticated by default; individual resolvers apply
+  `@UseGuards(GqlAuthGuard)` as needed (e.g. `myReviews`)
+- **`HttpExceptionFilter`** (global) detects `'graphql'` context type and re-throws the
+  exception; **`GqlExceptionFilter`** (also global) catches it and converts it to a
+  `GraphQLError` with `extensions.code` matching the REST error vocabulary
 
 **Cursor-based pagination pattern** (Relay connections):
 
 ```
 ProductConnection { edges: [ProductEdge!]!, pageInfo: PageInfo!, totalCount: Int! }
 ProductEdge       { node: Product!, cursor: String! }
-PageInfo          { hasNextPage: Boolean!, endCursor: String }
+PageInfo          { hasNextPage: Boolean!, hasPreviousPage: Boolean!,
+                    startCursor: String, endCursor: String }
 ```
 
-Cursor encodes `createdAt` (ISO string) as base64. Utilities live in
-`src/common/pagination/` (created in Phase 3).
+Cursor encodes the **row ID** as opaque base64 JSON (`{ id }`). Utilities live in
+`src/common/pagination/` (cursor.util.ts + page-info.model.ts).
 
 ---
 
 ## Backend Module Structure
 
-> **Phases 1–2 implemented.** `auth/`, `common/decorators/`, `common/filters/` are on disk.
-> Phase 3 target: `products/` module (GraphQL queries). Phases 4–5: `reviews/` and remaining `common/`.
+> **Phases 1–5 implemented.**
 
 ```
 src/
-  main.ts                       # Bootstrap: Fastify adapter, ValidationPipe, CORS, /api prefix,
-                                #   global HttpExceptionFilter
-  app.module.ts                 # Root module — ConfigModule (global), PrismaModule, HealthModule,
-                                #   AuthModule
+  main.ts                       # Bootstrap: loads .env/.env.local, Fastify adapter,
+                                #   Helmet, CORS, /api prefix, global filters + interceptor
+  app.module.ts                 # Root: ConfigModule, ThrottlerModule, GraphQLModule,
+                                #   PrismaModule, HealthModule, AuthModule, ProductsModule,
+                                #   ReviewsModule; applies CorrelationIdMiddleware globally
   config/
-    configuration.ts            # Typed AppConfig + Joi validation schema; .env + .env.local loaded
+    configuration.ts            # Typed AppConfig + Joi validation schema
+    load-env.ts                 # Loads .env then .env.local with override:true (same as
+                                #   dotenv-cli -o); imported first in main, seed, export-schema
   database/
     prisma.module.ts            # @Global() module
     prisma.service.ts           # Extends PrismaClient; onModuleInit/Destroy lifecycle
@@ -228,7 +234,8 @@ src/
   auth/                         # ✅ Phase 2
     auth.module.ts              # PassportModule, JwtModule (async), strategies, controller, service
     auth.controller.ts          # POST /api/auth/register|login|refresh|logout
-    auth.service.ts             # bcrypt hash/compare, JWT sign (access + refresh), ConflictException
+                                #   ThrottlerBehindProxyGuard: register 5/min, login 10/min
+    auth.service.ts             # bcrypt hash/compare, JWT sign (access + refresh)
     interfaces/
       jwt-payload.interface.ts  # JwtPayload { sub, email, role }, AuthenticatedUser
     strategies/
@@ -241,45 +248,50 @@ src/
     dto/
       register.dto.ts           # email, displayName, password (class-validator)
       login.dto.ts              # email, password
-  common/                       # ✅ Phase 2 (partial)
+  common/                       # ✅ Phases 2–5
     decorators/
-      current-user.decorator.ts # @CurrentUser() — reads req.user set by Passport (REST only)
+      current-user.decorator.ts   # @CurrentUser() — REST only (switchToHttp)
+      gql-current-user.decorator.ts # @GqlCurrentUser() — GraphQL resolvers only
     filters/
-      http-exception.filter.ts  # Global: HttpException → { error: { code, message, statusCode } }
-
-  # --- Phase 3 target ---
-  products/
+      http-exception.filter.ts  # Global REST filter; skips GraphQL context (re-throws)
+      gql-exception.filter.ts   # ✅ Phase 5 — maps HttpExceptions in resolvers to
+                                #   GraphQLError with extensions.code (UNAUTHORIZED, FORBIDDEN…)
+    guards/
+      throttler-behind-proxy.guard.ts # ✅ Phase 5 — extracts real IP from X-Forwarded-For
+    interceptors/
+      logging.interceptor.ts    # ✅ Phase 5 — logs → and ← with method, URL, ms, correlationId
+    middleware/
+      correlation-id.middleware.ts # ✅ Phase 5 — generates/propagates X-Correlation-ID
+    pagination/
+      page-info.model.ts        # PageInfo @ObjectType with all four Relay fields
+      cursor.util.ts            # encodeCursor(id) / decodeCursor(cursor) — opaque base64 JSON
+  products/                     # ✅ Phase 3
     products.module.ts
-    products.resolver.ts        # @Query() product(id), products(first, after, filter)
-    products.service.ts         # findById, findAll with cursor pagination
+    products.resolver.ts        # @Query() product(id) → nullable, products(first,after,filter)
+    products.service.ts         # findById (throws), findByIdOptional (nullable), findMany
     models/
       product.model.ts          # @ObjectType()
-      product-connection.model.ts
-      product-filter.input.ts   # @InputType()
-      rating-distribution.model.ts
-
-  # --- Phases 4–5 target ---
-  reviews/
+      product-connection.model.ts # ProductConnection + ProductEdge
+      product-filter.input.ts   # @InputType() — category, search
+  reviews/                      # ✅ Phase 4
     reviews.module.ts
-    reviews.controller.ts       # REST: POST /products/:id/reviews, PUT/DELETE /reviews/:id
-    reviews.resolver.ts         # @ResolveField() reviews on Product; @Query() myReviews
-    reviews.service.ts          # Business logic, aggregate recalc in same transaction
+    reviews.controller.ts       # POST /api/products/:id/reviews (201) — 20 req/min
+                                # PUT  /api/reviews/:id (200)
+                                # DELETE /api/reviews/:id (204)
+    reviews.resolver.ts         # @ResolveField() reviews, ratingDistribution on Product
+                                # @Query() myReviews (GqlAuthGuard)
+    reviews.service.ts          # create/update/delete with aggregate recalc in same tx
+                                # findByProduct (sort, filterByRating, cursor pagination)
+                                # findMyReviews, getRatingDistribution
     dto/
-      create-review.dto.ts
-      update-review.dto.ts
+      create-review.dto.ts      # rating (1-5), title? (≤200), body (≤5000)
+      update-review.dto.ts      # all fields optional
     models/
-      review.model.ts
-      review-connection.model.ts
-      review-sort.enum.ts
-  common/                       # Phase 5 additions
-    filters/
-      gql-exception.filter.ts
-    interceptors/
-      logging.interceptor.ts
-    middleware/
-      correlation-id.middleware.ts
-    scalars/
-      date-time.scalar.ts
+      review.model.ts           # @ObjectType()
+      review-connection.model.ts # ReviewConnection + ReviewEdge
+      review-author.model.ts    # @ObjectType() { id, displayName }
+      rating-distribution.model.ts # oneStar..fiveStar Int! counts
+      review-sort.enum.ts       # NEWEST | OLDEST | HIGHEST_RATING | LOWEST_RATING | MOST_HELPFUL
 ```
 
 ---
@@ -373,9 +385,9 @@ GRAPHQL_URL=http://localhost:3000/graphql
 | 0 | Docker Compose, rewrite ADRs, update docs | **Complete** |
 | 1 | NestJS + Fastify + Prisma scaffold, schema, migrations, seed | **Complete** |
 | 2 | Auth module (register, login, refresh, logout, guards) | **Complete** |
-| 3 | GraphQL setup + product queries with pagination | Pending |
-| 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | Pending |
-| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | Pending |
+| 3 | GraphQL setup + product queries with pagination | **Complete** |
+| 4 | Review CRUD (REST writes + GraphQL reads + aggregate recalc) | **Complete** |
+| 5 | Polish (exception filters, correlation IDs, helmet, throttler) | **Complete** |
 | 6 | Angular scaffold + Apollo Angular + Tailwind + codegen | Pending |
 | 7 | Frontend auth flow (AuthService, interceptors, guard, login/register) | Pending |
 | 8 | Frontend features (product list/detail, review list/form/card) | Pending |
