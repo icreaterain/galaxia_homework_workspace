@@ -63,7 +63,7 @@ docker compose up -d
 ```bash
 cd cloudtalk_homework_be
 cp .env.example .env       # edit DATABASE_URL / JWT_SECRET if needed
-pnpm run migrate           # applies migrations + seeds demo data
+pnpm run migrate:local     # applies migrations + seeds demo data
 pnpm run dev               # API at http://localhost:3000
 ```
 
