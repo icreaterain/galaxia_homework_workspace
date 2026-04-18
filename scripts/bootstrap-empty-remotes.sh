@@ -3,8 +3,8 @@
 # Required before scripts/add-submodules.sh (empty remotes cannot be checked out as submodules).
 set -euo pipefail
 
-FE_URL="https://github.com/icreaterain/cloudtalk_homework_fe.git"
-BE_URL="https://github.com/icreaterain/cloudtalk_homework_be.git"
+FE_URL="https://github.com/icreaterain/galaxia_homework_fe.git"
+BE_URL="https://github.com/icreaterain/galaxia_homework_be.git"
 
 bootstrap_repo() {
   local url="$1" title="$2" body="$3"
@@ -19,7 +19,7 @@ bootstrap_repo() {
     return 0
   fi
 
-  printf '%s\n\n%s\n\n%s\n' "$title" "$body" "See the workspace repo for setup: https://github.com/icreaterain/cloudtalk_homework_workspace" > README.md
+  printf '%s\n\n%s\n\n%s\n' "$title" "$body" "See the workspace repo for setup: https://github.com/icreaterain/galaxia_homework_workspace" > README.md
   git add README.md
   git commit -m "chore: initial commit"
   git branch -M main
@@ -29,8 +29,8 @@ bootstrap_repo() {
   echo "    Done."
 }
 
-bootstrap_repo "$FE_URL" "# cloudtalk_homework_fe" "Angular frontend for the CloudTalk homework product review system."
-bootstrap_repo "$BE_URL" "# cloudtalk_homework_be" "Node.js REST API for the CloudTalk homework product review system."
+bootstrap_repo "$FE_URL" "# galaxia_homework_fe" "Angular frontend for the CloudTalk homework product review system."
+bootstrap_repo "$BE_URL" "# galaxia_homework_be" "Node.js REST API for the CloudTalk homework product review system."
 
 echo ""
 echo "Remotes are ready. From the workspace root, run:"

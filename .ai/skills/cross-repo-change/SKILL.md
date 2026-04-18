@@ -1,11 +1,11 @@
 # Cross-Repo Change Coordination
 
-Coordinates changes that span both the frontend (`cloudtalk_homework_fe`) and backend (`cloudtalk_homework_be`) repositories. Use when an API contract changes, a new endpoint is added, a shared type needs updating, or any change requires commits in both repos.
+Coordinates changes that span both the frontend (`galaxia_homework_fe`) and backend (`galaxia_homework_be`) repositories. Use when an API contract changes, a new endpoint is added, a shared type needs updating, or any change requires commits in both repos.
 
 ## Dependency Direction
 
 ```
-cloudtalk_homework_fe  →  depends on  →  cloudtalk_homework_be
+galaxia_homework_fe  →  depends on  →  galaxia_homework_be
 ```
 
 The frontend consumes the backend API. Backend changes must always be stable before the frontend is updated to depend on them.
@@ -34,8 +34,8 @@ Never merge a FE change that depends on an unmerged BE change.
 Use the same feature scope in both branch names:
 
 ```
-cloudtalk_homework_be:  feat/reviews-add-helpful-votes
-cloudtalk_homework_fe:  feat/reviews-add-helpful-votes
+galaxia_homework_be:  feat/reviews-add-helpful-votes
+galaxia_homework_fe:  feat/reviews-add-helpful-votes
 ```
 
 ## Commit Message Coordination

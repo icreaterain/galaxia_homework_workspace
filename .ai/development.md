@@ -4,7 +4,7 @@ Commands, quality gates, and scripts reference for both repositories.
 
 ## Commands Quick Reference
 
-### cloudtalk_homework_be (NestJS API)
+### galaxia_homework_be (NestJS API)
 
 | Command | Description |
 |---------|-------------|
@@ -24,7 +24,7 @@ Commands, quality gates, and scripts reference for both repositories.
 | `pnpm run generate` | Regenerate Prisma Client after schema changes |
 | `pnpm run seed` | Run seed script directly |
 
-### cloudtalk_homework_fe (Angular SPA)
+### galaxia_homework_fe (Angular SPA)
 
 | Command | Description |
 |---------|-------------|
@@ -45,7 +45,7 @@ Run these in order before every commit.
 ### Backend
 
 ```bash
-cd cloudtalk_homework_be
+cd galaxia_homework_be
 pnpm exec tsc --noEmit
 pnpm run lint:check
 pnpm run format:check
@@ -56,7 +56,7 @@ pnpm run test:e2e
 ### Frontend
 
 ```bash
-cd cloudtalk_homework_fe
+cd galaxia_homework_fe
 pnpm run codegen
 pnpm exec tsc --noEmit -p tsconfig.app.json
 pnpm exec tsc --noEmit -p tsconfig.spec.json
@@ -71,12 +71,12 @@ The backend owns the GraphQL schema (code-first). The frontend generates typed s
 
 ```bash
 # 1. In the BE repo — export the schema after any resolver/model change
-cd cloudtalk_homework_be
+cd galaxia_homework_be
 pnpm run schema:export   # writes schema.graphql to repo root
 
 # 2. In the FE repo — regenerate typed services
-cd cloudtalk_homework_fe
-pnpm run codegen          # reads ../cloudtalk_homework_be/schema.graphql
+cd galaxia_homework_fe
+pnpm run codegen          # reads ../galaxia_homework_be/schema.graphql
                           # writes src/generated/graphql.ts (gitignored)
 ```
 

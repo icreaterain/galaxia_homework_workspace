@@ -97,12 +97,12 @@ export function getGqlQueryDetails(
 export function resolveSchemaPath(): string {
   // Walk up from the MCP package to find schema.graphql in the BE submodule
   const candidates = [
-    path.resolve(__dirname, '../../../../cloudtalk_homework_be/schema.graphql'),
-    path.resolve(__dirname, '../../cloudtalk_homework_be/schema.graphql'),
-    path.resolve(__dirname, '../../../cloudtalk_homework_be/schema.graphql'),
-    path.resolve(process.cwd(), '../../cloudtalk_homework_be/schema.graphql'),
-    path.resolve(process.cwd(), '../cloudtalk_homework_be/schema.graphql'),
-    path.resolve(process.cwd(), 'cloudtalk_homework_be/schema.graphql'),
+    path.resolve(__dirname, '../../../../galaxia_homework_be/schema.graphql'),
+    path.resolve(__dirname, '../../galaxia_homework_be/schema.graphql'),
+    path.resolve(__dirname, '../../../galaxia_homework_be/schema.graphql'),
+    path.resolve(process.cwd(), '../../galaxia_homework_be/schema.graphql'),
+    path.resolve(process.cwd(), '../galaxia_homework_be/schema.graphql'),
+    path.resolve(process.cwd(), 'galaxia_homework_be/schema.graphql'),
   ];
 
   const envPath = process.env['SCHEMA_PATH'];
@@ -113,6 +113,6 @@ export function resolveSchemaPath(): string {
   }
 
   throw new Error(
-    `Could not find schema.graphql. Set SCHEMA_PATH env var or ensure cloudtalk_homework_be is a sibling directory. Tried:\n${candidates.join('\n')}`,
+    `Could not find schema.graphql. Set SCHEMA_PATH env var or ensure galaxia_homework_be is a sibling directory. Tried:\n${candidates.join('\n')}`,
   );
 }

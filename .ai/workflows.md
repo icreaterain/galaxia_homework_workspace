@@ -1,11 +1,11 @@
 # Cross-Repository Workflows
 
-Patterns for coordinating changes across `cloudtalk_homework_be` and `cloudtalk_homework_fe`.
+Patterns for coordinating changes across `galaxia_homework_be` and `galaxia_homework_fe`.
 
 ## Dependency Graph
 
 ```
-cloudtalk_homework_fe  →  depends on  →  cloudtalk_homework_be
+galaxia_homework_fe  →  depends on  →  galaxia_homework_be
 ```
 
 The frontend consumes the backend's REST endpoints and GraphQL schema. Backend changes must be stable before the frontend is updated.
@@ -55,7 +55,7 @@ The frontend consumes the backend's REST endpoints and GraphQL schema. Backend c
 5. Run BE quality gate
 6. Commit, push, create PR:
    ```bash
-   cd cloudtalk_homework_be
+   cd galaxia_homework_be
    gh pr create --title "feat(<scope>): <subject>"
    ```
 7. Merge BE PR to main
@@ -68,8 +68,8 @@ The frontend consumes the backend's REST endpoints and GraphQL schema. Backend c
 4. Run FE quality gate
 5. Commit, push, create PR:
    ```bash
-   cd cloudtalk_homework_fe
-   gh pr create --title "feat(<scope>): <subject>" --body "Related: cloudtalk_homework_be#<PR>"
+   cd galaxia_homework_fe
+   gh pr create --title "feat(<scope>): <subject>" --body "Related: galaxia_homework_be#<PR>"
    ```
 6. Merge FE PR to main
 

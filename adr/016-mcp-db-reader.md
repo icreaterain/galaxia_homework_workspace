@@ -7,7 +7,7 @@
 
 ## Context
 
-ADR 015 introduced `mcp/cloudtalk-api` — an MCP server that wraps the running REST + GraphQL backend. That server is useful for invoking API operations, but it requires the NestJS process to be running and goes through HTTP, which limits what an agent can query (pagination, filters, raw counts, etc.).
+ADR 015 introduced `mcp/galaxia-api` — an MCP server that wraps the running REST + GraphQL backend. That server is useful for invoking API operations, but it requires the NestJS process to be running and goes through HTTP, which limits what an agent can query (pagination, filters, raw counts, etc.).
 
 For agent tasks like debugging data quality issues, exploring seed data, auditing review statuses, or answering ad-hoc questions about the dataset, direct database access provides:
 
@@ -18,7 +18,7 @@ For agent tasks like debugging data quality issues, exploring seed data, auditin
 
 ## Decision
 
-Add a second MCP server at `mcp/cloudtalk-db/` that connects directly to PostgreSQL via its own `@prisma/client` instance and exposes a single general-purpose read-only tool:
+Add a second MCP server at `mcp/galaxia-db/` that connects directly to PostgreSQL via its own `@prisma/client` instance and exposes a single general-purpose read-only tool:
 
 | Tool | Description |
 |---|---|
@@ -35,9 +35,9 @@ No writes, no DDL, no mutations.
 
 ```
 mcp/
-├── cloudtalk-api/   ← API wrapper (ADR 015, moved from mcp_service_wrapper/)
-└── cloudtalk-db/    ← direct DB reader (this ADR)
-    ├── prisma/schema.prisma   ← symlink → cloudtalk_homework_be/prisma/schema.prisma
+├── galaxia-api/   ← API wrapper (ADR 015, moved from mcp_service_wrapper/)
+└── galaxia-db/    ← direct DB reader (this ADR)
+    ├── prisma/schema.prisma   ← symlink → galaxia_homework_be/prisma/schema.prisma
     ├── src/
     │   ├── index.ts
     │   └── tools/
@@ -48,16 +48,16 @@ mcp/
 ## Technology Choices
 
 - **`@prisma/client@^6`** — same major version as the backend
-- **Symlinked `prisma/schema.prisma`** — `mcp/cloudtalk-db/prisma/schema.prisma` is a symlink to `cloudtalk_homework_be/prisma/schema.prisma`; Prisma discovers the schema at its apparent path so it resolves `@prisma/client` from the MCP's own `node_modules`, avoiding any version mismatch with the BE
+- **Symlinked `prisma/schema.prisma`** — `mcp/galaxia-db/prisma/schema.prisma` is a symlink to `galaxia_homework_be/prisma/schema.prisma`; Prisma discovers the schema at its apparent path so it resolves `@prisma/client` from the MCP's own `node_modules`, avoiding any version mismatch with the BE
 - **`pnpm.onlyBuiltDependencies`** — enables Prisma engine postinstall scripts without interactive `pnpm approve-builds`
-- **CommonJS** — consistent with `cloudtalk-api` to avoid ESM/CJS interop
+- **CommonJS** — consistent with `galaxia-api` to avoid ESM/CJS interop
 
 ## Schema Sync
 
-`mcp/cloudtalk-db/prisma/schema.prisma` is a symlink to the BE schema — there is no copy to maintain. When BE models change:
+`mcp/galaxia-db/prisma/schema.prisma` is a symlink to the BE schema — there is no copy to maintain. When BE models change:
 
-1. Update `cloudtalk_homework_be/prisma/schema.prisma` as normal
-2. Run `pnpm run generate` and `pnpm run build` in `mcp/cloudtalk-db/`
+1. Update `galaxia_homework_be/prisma/schema.prisma` as normal
+2. Run `pnpm run generate` and `pnpm run build` in `mcp/galaxia-db/`
 
 ## Configuration
 
@@ -66,10 +66,10 @@ mcp/
 ```json
 {
   "mcpServers": {
-    "cloudtalk-api": { ... },
-    "cloudtalk-db": {
+    "galaxia-api": { ... },
+    "galaxia-db": {
       "command": "pnpm",
-      "args": ["--dir", "mcp/cloudtalk-db", "exec", "node", "dist/index.js"],
+      "args": ["--dir", "mcp/galaxia-db", "exec", "node", "dist/index.js"],
       "env": {
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/reviews_dev"
       }
@@ -84,7 +84,7 @@ For production: set `DATABASE_URL` to the Supabase direct URL (port 5432).
 
 | Alternative | Rejected because |
 |---|---|
-| Extend `cloudtalk-api` with DB tools | Mixes concerns; `cloudtalk-api` requires API to be up |
+| Extend `galaxia-api` with DB tools | Mixes concerns; `galaxia-api` requires API to be up |
 | Entity-specific tools (list_products, get_product, …) | Each tool only covers one model; an agent needs SQL anyway for JOINs, aggregates, or ad-hoc analysis — a raw `query` tool is strictly more powerful |
 | Raw `pg` client with SQL strings | Verbose; no type safety on the host side; Prisma already present |
 | GraphQL queries with extended schema | Would require BE changes and API to be running |
@@ -92,7 +92,7 @@ For production: set `DATABASE_URL` to the Supabase direct URL (port 5432).
 
 ## Consequences
 
-- **New package** `mcp/cloudtalk-db/` at workspace root
+- **New package** `mcp/galaxia-db/` at workspace root
 - Both MCP packages now live under `mcp/`; old `mcp_service_wrapper/` directory removed
 - Requires `DATABASE_URL` to point to a running Postgres instance
-- No separate schema copy — `mcp/cloudtalk-db/prisma/schema.prisma` is a symlink; updating the BE schema automatically updates the MCP schema
+- No separate schema copy — `mcp/galaxia-db/prisma/schema.prisma` is a symlink; updating the BE schema automatically updates the MCP schema

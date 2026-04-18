@@ -11,7 +11,7 @@ import { executeInputSchema, runExecute } from './tools/execute.js';
 const BASE_URL = (process.env['BASE_URL'] ?? 'http://localhost:3000').replace(/\/$/, '');
 
 const server = new Server(
-  { name: 'cloudtalk-api', version: '1.0.0' },
+  { name: 'galaxia-api', version: '1.0.0' },
   { capabilities: { tools: {} } },
 );
 

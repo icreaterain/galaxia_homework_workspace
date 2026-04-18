@@ -12,17 +12,17 @@ A branch name or task description.
 
 For each repository, check for uncommitted changes:
 ```bash
-cd cloudtalk_homework_be && git status && git diff --stat
-cd cloudtalk_homework_fe && git status && git diff --stat
+cd galaxia_homework_be && git status && git diff --stat
+cd galaxia_homework_fe && git status && git diff --stat
 ```
 
 ### Step 2: Run Quality Checks
 
 For each repository with changes, run the full quality gate:
 
-**cloudtalk_homework_be:**
+**galaxia_homework_be:**
 ```bash
-cd cloudtalk_homework_be
+cd galaxia_homework_be
 pnpm exec tsc --noEmit
 pnpm run lint:check
 pnpm run format:check
@@ -30,9 +30,9 @@ pnpm test
 pnpm run test:e2e
 ```
 
-**cloudtalk_homework_fe:**
+**galaxia_homework_fe:**
 ```bash
-cd cloudtalk_homework_fe
+cd galaxia_homework_fe
 pnpm run codegen
 pnpm exec tsc --noEmit -p tsconfig.app.json
 pnpm exec tsc --noEmit -p tsconfig.spec.json
@@ -103,8 +103,8 @@ If this is a cross-repo change, add a note linking the related PR:
 ## Task Complete
 
 **Pull Requests:**
-- cloudtalk_homework_be: <PR URL>
-- cloudtalk_homework_fe: <PR URL>
+- galaxia_homework_be: <PR URL>
+- galaxia_homework_fe: <PR URL>
 
 **Quality:** All checks passing
 **Branch:** <branch-name>

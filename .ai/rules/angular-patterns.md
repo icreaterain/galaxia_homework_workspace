@@ -1,6 +1,6 @@
 # Angular Patterns
 
-Applies to: `cloudtalk_homework_fe/**/*.ts`
+Applies to: `galaxia_homework_fe/**/*.ts`
 
 ## Components
 

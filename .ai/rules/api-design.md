@@ -1,6 +1,6 @@
 # API Design Conventions
 
-Applies to: `cloudtalk_homework_be/**/*.ts`
+Applies to: `galaxia_homework_be/**/*.ts`
 
 ## Hybrid REST + GraphQL Split
 

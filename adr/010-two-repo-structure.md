@@ -11,9 +11,9 @@ pipelines. They can evolve at different speeds as long as the API contract is re
 
 ## Decision
 
-Maintain **two separate git repositories** (`cloudtalk_homework_be`,
-`cloudtalk_homework_fe`) linked as **git submodules** under a workspace root
-(`cloudtalk_homework`).
+Maintain **two separate git repositories** (`galaxia_homework_be`,
+`galaxia_homework_fe`) linked as **git submodules** under a workspace root
+(`galaxia_homework`).
 
 - Each repo has its own `package.json`, `tsconfig.json`, `.eslintrc`, `.env.example`,
   `Dockerfile`, CI pipeline, and `README.md`.

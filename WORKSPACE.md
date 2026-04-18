@@ -38,8 +38,8 @@ This workspace coordinates two repositories linked as **git submodules**:
 
 | Path | Repository | Role | Stack |
 |---|---|---|---|
-| `cloudtalk_homework_be/` | `cloudtalk_homework_be` | NestJS API + Prisma + PostgreSQL | Node.js + TypeScript |
-| `cloudtalk_homework_fe/` | `cloudtalk_homework_fe` | Angular SPA | Angular + TypeScript |
+| `galaxia_homework_be/` | `galaxia_homework_be` | NestJS API + Prisma + PostgreSQL | Node.js + TypeScript |
+| `galaxia_homework_fe/` | `galaxia_homework_fe` | Angular SPA | Angular + TypeScript |
 
 The workspace root holds shared infrastructure:
 
@@ -48,8 +48,8 @@ The workspace root holds shared infrastructure:
 | `docker-compose.yml` | Postgres 16-alpine for local dev |
 | `scripts/` | setup.sh, submodule helpers |
 | `adr/` | Architecture Decision Records |
-| `mcp/cloudtalk-api/` | MCP server wrapping the REST + GraphQL API (see below) |
-| `mcp/cloudtalk-db/` | MCP server for direct read-only DB access via Prisma (see below) |
+| `mcp/galaxia-api/` | MCP server wrapping the REST + GraphQL API (see below) |
+| `mcp/galaxia-db/` | MCP server for direct read-only DB access via Prisma (see below) |
 | `ARCHITECTURE.md` | Current system state (stack, schema, API) |
 | `WORKSPACE.md` | This file — developer + agent onboarding |
 | `AGENTS.md` | Agent entry point and implementation phases |
@@ -60,12 +60,12 @@ The workspace root holds shared infrastructure:
 **MCP setup:** After clone, run `pnpm install` and `pnpm run build` in each of the two MCP packages:
 
 ```bash
-cd mcp/cloudtalk-api && pnpm install && pnpm run build
-cd mcp/cloudtalk-db  && pnpm install && pnpm run build
+cd mcp/galaxia-api && pnpm install && pnpm run build
+cd mcp/galaxia-db  && pnpm install && pnpm run build
 ```
 
-- **cloudtalk-api**: Wraps the running backend. Set `BASE_URL` env var to override (default `http://localhost:3000`). Optional: set `SCHEMA_PATH` if `schema.graphql` is not at `cloudtalk_homework_be/schema.graphql` relative to the workspace.
-- **cloudtalk-db**: Connects directly to Postgres. Set `DATABASE_URL` env var to the connection string (default: `postgresql://postgres:postgres@localhost:5432/reviews_dev`). Single tool: `query` — accepts any read-only SQL `SELECT` and returns full-fidelity JSON (no truncation). Rejects any statement containing write/DDL keywords before it reaches the DB.
+- **galaxia-api**: Wraps the running backend. Set `BASE_URL` env var to override (default `http://localhost:3000`). Optional: set `SCHEMA_PATH` if `schema.graphql` is not at `galaxia_homework_be/schema.graphql` relative to the workspace.
+- **galaxia-db**: Connects directly to Postgres. Set `DATABASE_URL` env var to the connection string (default: `postgresql://postgres:postgres@localhost:5432/reviews_dev`). Single tool: `query` — accepts any read-only SQL `SELECT` and returns full-fidelity JSON (no truncation). Rejects any statement containing write/DDL keywords before it reaches the DB.
 
 After cloning: `git clone --recurse-submodules <url>` then `./scripts/setup.sh`.
 
@@ -92,13 +92,13 @@ Use [pnpm](https://pnpm.io/) for installs and scripts (`corepack enable pnpm` on
 ```bash
 # Clone with submodules
 git clone --recurse-submodules <repo-url>
-cd cloudtalk_homework
+cd galaxia_homework
 
 # Start database
 docker compose up -d
 
 # Backend
-cd cloudtalk_homework_be
+cd galaxia_homework_be
 cp .env.example .env
 # Optional: create .env.local with overrides (e.g. Supabase URLs) — gitignored, wins over .env
 pnpm install             # also runs prisma generate via postinstall
@@ -106,7 +106,7 @@ pnpm run migrate:local   # prisma migrate dev — creates schema + runs seed aut
 pnpm run dev             # http://localhost:3000
 
 # Frontend (separate terminal)
-cd cloudtalk_homework_fe
+cd galaxia_homework_fe
 cp .env.example .env
 pnpm install
 pnpm run codegen         # generate typed GQL services from schema.graphql (first time and after BE schema changes)
@@ -162,7 +162,7 @@ chore(workspace): add docker-compose.yml
 ### Never Edit
 
 - `dist/` in either repo — compiled output
-- `mcp/cloudtalk-api/dist/` and `mcp/cloudtalk-db/dist/` — gitignored compiled output; run `pnpm run build` in each package after clone
+- `mcp/galaxia-api/dist/` and `mcp/galaxia-db/dist/` — gitignored compiled output; run `pnpm run build` in each package after clone
 - `src/generated/` in the FE repo — graphql-codegen output; gitignored, generated in CI and locally via `pnpm run codegen`
 - `prisma/migrations/` auto-generated files — use `prisma migrate dev` to generate
 
@@ -184,8 +184,8 @@ chore(workspace): add docker-compose.yml
 | Testing | Jest (both repos) | — |
 | Repo structure | Two repos as git submodules | [010](adr/010-two-repo-structure.md) |
 | Contract ownership | OpenAPI + GraphQL SDL from backend | [011](adr/011-contract-ownership.md) |
-| Agent API tooling | MCP `cloudtalk-api` (list / get_details / execute) | [015](adr/015-mcp-api-wrapper.md) |
-| Agent DB tooling | MCP `cloudtalk-db` (read-only SQL `query`) | [016](adr/016-mcp-db-reader.md) |
+| Agent API tooling | MCP `galaxia-api` (list / get_details / execute) | [015](adr/015-mcp-api-wrapper.md) |
+| Agent DB tooling | MCP `galaxia-db` (read-only SQL `query`) | [016](adr/016-mcp-db-reader.md) |
 
 ---
 
@@ -259,10 +259,10 @@ Both `ProductConnection` and `ReviewConnection` follow this pattern.
 ### GraphQL Codegen Workflow
 
 ```bash
-# In cloudtalk_homework_be/
+# In galaxia_homework_be/
 pnpm run schema:export   # writes schema.graphql to repo root
 
-# In cloudtalk_homework_fe/
+# In galaxia_homework_fe/
 pnpm run codegen         # reads schema.graphql, writes src/generated/
 ```
 
@@ -372,13 +372,13 @@ GRAPHQL_URL=http://localhost:3000/graphql
 Set in `.env` (gitignored). `.env.example` is committed. Values can be overridden at runtime via
 `window.__env` (inject into `index.html` via a server-side script in production).
 
-**Production (Firebase Hosting → Cloud Run):** `cloudtalk_homework_fe/firebase.json` rewrites
-`/api/**` and `/graphql` to Cloud Run service `cloudtalk-be` in `us-central1`. The deploy workflow
-writes `public/env.js` with defaults `https://cloudtalk-homework.web.app/api` and
+**Production (Firebase Hosting → Cloud Run):** `galaxia_homework_fe/firebase.json` rewrites
+`/api/**` and `/graphql` to Cloud Run service `galaxia-be` in `us-central1`. The deploy workflow
+writes `public/env.js` with defaults `https://galaxia-homework.web.app/api` and
 `.../graphql` (overridable via GitHub repo variables `API_URL` / `GRAPHQL_URL`). One-time GCP:
 grant the Firebase Hosting service account **Cloud Run Invoker** on that service (Firebase console
 may prompt when first deploying rewrites). Set Cloud Run `CORS_ORIGIN` to the Hosting origin
-(e.g. `https://cloudtalk-homework.web.app`).
+(e.g. `https://galaxia-homework.web.app`).
 
 ### Jest / Testing
 
@@ -404,7 +404,7 @@ providers: [
 
 - Angular's static `Validators.*` methods (e.g. `Validators.required`, `Validators.email`) are
   safe to reference unbound in form definitions. The ESLint rule `@typescript-eslint/unbound-method`
-  is configured with `ignoreStatic: true` in `cloudtalk_homework_fe/.eslintrc.js` for this reason.
+  is configured with `ignoreStatic: true` in `galaxia_homework_fe/.eslintrc.js` for this reason.
 
 ### Shared Components
 
@@ -461,13 +461,13 @@ Both repos use [pnpm](https://pnpm.io/) and these standardized script names:
 
 ```bash
 # Backend — unit tests
-cd cloudtalk_homework_be && pnpm test
+cd galaxia_homework_be && pnpm test
 
 # Backend — e2e (requires running Postgres)
-cd cloudtalk_homework_be && pnpm run test:e2e
+cd galaxia_homework_be && pnpm run test:e2e
 
 # Frontend — unit tests
-cd cloudtalk_homework_fe && pnpm test
+cd galaxia_homework_fe && pnpm test
 ```
 
 ---
@@ -489,7 +489,7 @@ In CI (GitHub Actions — `.github/workflows/ci.yml` in each submodule repo):
 - production build (`pnpm run build`) — runs after quality gate passes
 
 **Frontend CI** (`quality` + `build` jobs):
-- shallow-clone BE repo into the sibling `../cloudtalk_homework_be/` path so `schema.graphql` is available (BE is the single source of truth per ADR 011)
+- shallow-clone BE repo into the sibling `../galaxia_homework_be/` path so `schema.graphql` is available (BE is the single source of truth per ADR 011)
 - `pnpm run codegen` — generates `src/generated/graphql.ts` from the fetched schema
 - lint · format check · `tsc --noEmit -p tsconfig.app.json` · `tsc --noEmit -p tsconfig.spec.json`
 - unit tests via Angular CLI jest builder (`pnpm run test:ci`)
@@ -508,7 +508,7 @@ The `deploy.yml` workflow:
 2. Builds a multi-stage Docker image, pushes it to **Artifact Registry** (`us-central1`) with a commit-SHA tag.
 3. Deploys to **Cloud Run** using the SHA tag.
 
-Production environment variables (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, etc.) are set directly on the Cloud Run service (not baked into the image). Set `CORS_ORIGIN` to the Firebase Hosting origin (e.g. `https://cloudtalk-homework.web.app`).
+Production environment variables (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, etc.) are set directly on the Cloud Run service (not baked into the image). Set `CORS_ORIGIN` to the Firebase Hosting origin (e.g. `https://galaxia-homework.web.app`).
 
 Required GitHub repo variables: `GCP_PROJECT_ID`, `GCP_AR_REPOSITORY`, `GCP_CLOUD_RUN_SERVICE`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`.
 
@@ -517,12 +517,12 @@ Required GitHub repo variables: `GCP_PROJECT_ID`, `GCP_AR_REPOSITORY`, `GCP_CLOU
 The `deploy.yml` workflow:
 1. Shallow-clones the BE repo for `schema.graphql` (same pattern as CI).
 2. Runs `pnpm run codegen`.
-3. Writes `public/env.js` with production `window.__env` values (defaults: `https://cloudtalk-homework.web.app/api` and `.../graphql`; overridable via repo variables `API_URL` / `GRAPHQL_URL`).
+3. Writes `public/env.js` with production `window.__env` values (defaults: `https://galaxia-homework.web.app/api` and `.../graphql`; overridable via repo variables `API_URL` / `GRAPHQL_URL`).
 4. Runs `pnpm run build`.
 5. Authenticates to GCP via Workload Identity Federation.
 6. Deploys to **Firebase Hosting** via `firebase deploy --only hosting`.
 
-`firebase.json` rewrites `/api/**` and `/graphql` to the Cloud Run service `cloudtalk-be`, so the SPA hits its own origin for all API calls (no CORS preflight in production).
+`firebase.json` rewrites `/api/**` and `/graphql` to the Cloud Run service `galaxia-be`, so the SPA hits its own origin for all API calls (no CORS preflight in production).
 
 Required GitHub repo variables: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT_EMAIL`, `FIREBASE_PROJECT_ID`.
 
@@ -548,7 +548,7 @@ Services fall back to `http://localhost:3000` if `window.__env` is absent — sa
 
 When an API contract changes (new field, renamed type, new endpoint):
 
-1. Implement the change in `cloudtalk_homework_be/` and merge to `main`
+1. Implement the change in `galaxia_homework_be/` and merge to `main`
 2. Run `pnpm run schema:export` in the BE — commit the updated `schema.graphql`
 3. Implement the FE change — CI will run `pnpm run codegen` against the new schema automatically
 4. Merge the FE change to `main`
@@ -562,7 +562,7 @@ See `.ai/skills/cross-repo-change/SKILL.md` for the full protocol.
 ## External Dependencies
 
 - **PostgreSQL 16** — via Docker Compose locally; Supabase-hosted in production
-- **Google Cloud Run** — production backend hosting (`us-central1`, service `cloudtalk-be`)
+- **Google Cloud Run** — production backend hosting (`us-central1`, service `galaxia-be`)
 - **Google Artifact Registry** — Docker image store for Cloud Run deployments
 - **Firebase Hosting** — production frontend hosting; rewrites to Cloud Run for `/api/**` and `/graphql`
 - **No external auth provider** — self-managed JWT (see [ADR 006](adr/006-jwt-auth.md))

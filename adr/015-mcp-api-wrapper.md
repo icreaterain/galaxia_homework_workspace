@@ -20,7 +20,7 @@ agents to:
 
 ## Decision
 
-Implement a standalone **MCP (Model Context Protocol) server** (`mcp/cloudtalk-api/`,
+Implement a standalone **MCP (Model Context Protocol) server** (`mcp/galaxia-api/`,
 previously `mcp_service_wrapper/`) in the workspace root. It wraps the running backend
 and exposes three tools over stdio:
 
@@ -64,13 +64,13 @@ The `schema.graphql` file already exists in the BE repo root (exported by
 
 ## Consequences
 
-- **Package** lives at `mcp/cloudtalk-api/` (moved from `mcp_service_wrapper/` — see ADR 016)
+- **Package** lives at `mcp/galaxia-api/` (moved from `mcp_service_wrapper/` — see ADR 016)
 - **BE gets** `@nestjs/swagger@^7` and a `/docs-json` endpoint (no UI)
 - The MCP server requires the **BE to be running** to serve the OpenAPI spec; the GraphQL
   schema is read from disk and works offline
-- `SCHEMA_PATH` defaults to sibling `cloudtalk_homework_be/schema.graphql`; set the env
+- `SCHEMA_PATH` defaults to sibling `galaxia_homework_be/schema.graphql`; set the env
   var if the server runs from a different working directory
-- After any BE API change, run `pnpm run build` in `mcp/cloudtalk-api/` to rebuild
+- After any BE API change, run `pnpm run build` in `mcp/galaxia-api/` to rebuild
 
 ## Configuration
 
@@ -79,9 +79,9 @@ The `schema.graphql` file already exists in the BE repo root (exported by
 ```json
 {
   "mcpServers": {
-    "cloudtalk-api": {
+    "galaxia-api": {
       "command": "pnpm",
-      "args": ["--dir", "mcp/cloudtalk-api", "exec", "node", "dist/index.js"],
+      "args": ["--dir", "mcp/galaxia-api", "exec", "node", "dist/index.js"],
       "env": {
         "BASE_URL": "http://localhost:3000"
       }
@@ -90,4 +90,4 @@ The `schema.graphql` file already exists in the BE repo root (exported by
 }
 ```
 
-The MCP process cwd is the workspace root so `--dir mcp/cloudtalk-api` resolves correctly. `schema.graphql` is found via paths relative to `dist/`; override with `SCHEMA_PATH` only if needed. For production, set `BASE_URL` to the Cloud Run URL.
+The MCP process cwd is the workspace root so `--dir mcp/galaxia-api` resolves correctly. `schema.graphql` is found via paths relative to `dist/`; override with `SCHEMA_PATH` only if needed. For production, set `BASE_URL` to the Cloud Run URL.

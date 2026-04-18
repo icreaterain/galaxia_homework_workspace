@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "cloudtalk-api": {
+    "galaxia-api": {
       "command": "pnpm",
       "args": [
         "--dir",
-        "mcp/cloudtalk-api",
+        "mcp/galaxia-api",
         "exec",
         "node",
         "dist/index.js"
@@ -13,11 +13,11 @@
         "BASE_URL": "http://localhost:3000"
       }
     },
-    "cloudtalk-db": {
+    "galaxia-db": {
       "command": "pnpm",
       "args": [
         "--dir",
-        "mcp/cloudtalk-db",
+        "mcp/galaxia-db",
         "exec",
         "node",
         "dist/index.js"

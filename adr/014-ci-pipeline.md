@@ -69,16 +69,16 @@ still isolates its own data via `afterAll` cleanup.
 
 FE CI must run `pnpm run codegen` before type-checking or running tests, because
 `src/generated/graphql.ts` is gitignored and never committed. `codegen.ts` reads
-`../cloudtalk_homework_be/schema.graphql` (the workspace-relative path used in local dev).
+`../galaxia_homework_be/schema.graphql` (the workspace-relative path used in local dev).
 
-In CI the FE repo is checked out in isolation (`/home/runner/work/cloudtalk_homework_fe/`);
+In CI the FE repo is checked out in isolation (`/home/runner/work/galaxia_homework_fe/`);
 the BE submodule is not present. The FE CI workflow reconstructs the sibling directory
 structure with a shallow clone:
 
 ```yaml
 - name: Fetch BE repo for schema.graphql
   run: |
-    SIBLING_DIR="$(dirname "$GITHUB_WORKSPACE")/cloudtalk_homework_be"
+    SIBLING_DIR="$(dirname "$GITHUB_WORKSPACE")/galaxia_homework_be"
     git clone --depth=1 "$BE_REPO" "$SIBLING_DIR"
 ```
 
@@ -139,7 +139,7 @@ not reproduce correctly.
 
 The Angular SPA is deployed to Firebase Hosting. `firebase.json` configures two rewrites
 before the catch-all Angular SPA route:
-- `/api/**` → Cloud Run service `cloudtalk-be`
+- `/api/**` → Cloud Run service `galaxia-be`
 - `/graphql` → same Cloud Run service
 
 This means the frontend and the API share one origin in production; no CORS preflight is

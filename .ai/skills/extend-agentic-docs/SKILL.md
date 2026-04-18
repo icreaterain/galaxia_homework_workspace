@@ -62,7 +62,7 @@ After any change, verify:
 When a pattern appears more than once in implementation, codify it as a rule.
 
 1. Create `.ai/rules/<descriptive-name>.md`
-2. Note the file glob scope in the first line (e.g., "Applies to: `cloudtalk_homework_be/**/*.ts`")
+2. Note the file glob scope in the first line (e.g., "Applies to: `galaxia_homework_be/**/*.ts`")
 3. Keep it under 50 lines; use concrete `✅ / ❌` examples
 
 ## Adding a New Skill

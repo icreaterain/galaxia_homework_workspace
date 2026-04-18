@@ -41,20 +41,20 @@ copy_env_example() {
 
 # ── 3. Backend ───────────────────────────────────────────────────────────────
 echo ""
-echo "==> Backend (cloudtalk_homework_be)"
-copy_env_example "cloudtalk_homework_be"
-install_pnpm "cloudtalk_homework_be"
+echo "==> Backend (galaxia_homework_be)"
+copy_env_example "galaxia_homework_be"
+install_pnpm "galaxia_homework_be"
 
 # ── 4. Frontend ──────────────────────────────────────────────────────────────
 echo ""
-echo "==> Frontend (cloudtalk_homework_fe)"
-copy_env_example "cloudtalk_homework_fe"
-install_pnpm "cloudtalk_homework_fe"
+echo "==> Frontend (galaxia_homework_fe)"
+copy_env_example "galaxia_homework_fe"
+install_pnpm "galaxia_homework_fe"
 
 # ── 5. MCP packages ──────────────────────────────────────────────────────────
 echo ""
 echo "==> MCP servers"
-for mcp_pkg in mcp/cloudtalk-api mcp/cloudtalk-db; do
+for mcp_pkg in mcp/galaxia-api mcp/galaxia-db; do
   if [[ -d "$ROOT/$mcp_pkg" ]] && [[ -f "$ROOT/$mcp_pkg/package.json" ]]; then
     echo "    pnpm install + build in $mcp_pkg"
     (cd "$ROOT/$mcp_pkg" && pnpm install && pnpm run build)
@@ -73,20 +73,20 @@ echo "║  Step 1 — Start PostgreSQL (Docker required)                        
 echo "║    docker compose up -d                                              ║"
 echo "║                                                                      ║"
 echo "║  Step 2 — Apply migrations (seed runs automatically on a fresh DB)     ║"
-echo "║    cd cloudtalk_homework_be                                          ║"
+echo "║    cd galaxia_homework_be                                          ║"
 echo "║    pnpm run migrate:local                                            ║"
 echo "║    cd ..                                                             ║"
 echo "║                                                                      ║"
 echo "║    If the DB already has migrations but no data, seed manually:      ║"
-echo "║    cd cloudtalk_homework_be && pnpm run seed && cd ..               ║"
+echo "║    cd galaxia_homework_be && pnpm run seed && cd ..               ║"
 echo "║                                                                      ║"
 echo "║  Step 3 — Start the backend API                                      ║"
-echo "║    cd cloudtalk_homework_be && pnpm run dev                          ║"
+echo "║    cd galaxia_homework_be && pnpm run dev                          ║"
 echo "║    → http://localhost:3000                                           ║"
 echo "║    → http://localhost:3000/graphql  (GraphQL Playground)             ║"
 echo "║                                                                      ║"
 echo "║  Step 4 — Start the frontend (separate terminal)                     ║"
-echo "║    cd cloudtalk_homework_fe && pnpm run codegen && pnpm start        ║"
+echo "║    cd galaxia_homework_fe && pnpm run codegen && pnpm start        ║"
 echo "║    → http://localhost:4200                                           ║"
 echo "║                                                                      ║"
 echo "║  Demo credentials (seeded)                                           ║"
@@ -95,7 +95,7 @@ echo "║    admin@demo.com / password123                                      �
 echo "║                                                                      ║"
 echo "║  Notes                                                               ║"
 echo "║  • .env was auto-copied from .env.example if missing.               ║"
-echo "║    Review cloudtalk_homework_be/.env for DB / JWT settings.         ║"
+echo "║    Review galaxia_homework_be/.env for DB / JWT settings.         ║"
 echo "║  • pnpm run codegen must be re-run after any GraphQL schema change.  ║"
 echo "║  • MCP servers are built and ready in mcp/cloudtalk-{api,db}/.      ║"
 echo "║                                                                      ║"

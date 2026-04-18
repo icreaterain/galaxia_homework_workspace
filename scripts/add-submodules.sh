@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Register cloudtalk_homework_fe and cloudtalk_homework_be as git submodules.
+# Register galaxia_homework_fe and galaxia_homework_be as git submodules.
 # Prerequisites: both remotes must have at least one commit (run bootstrap-empty-remotes.sh once if needed).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-FE_URL="https://github.com/icreaterain/cloudtalk_homework_fe.git"
-BE_URL="https://github.com/icreaterain/cloudtalk_homework_be.git"
-FE_PATH="cloudtalk_homework_fe"
-BE_PATH="cloudtalk_homework_be"
+FE_URL="https://github.com/icreaterain/galaxia_homework_fe.git"
+BE_URL="https://github.com/icreaterain/galaxia_homework_be.git"
+FE_PATH="galaxia_homework_fe"
+BE_PATH="galaxia_homework_be"
 
 if [[ -f .gitmodules ]]; then
   echo ".gitmodules already exists — syncing submodules only."
@@ -27,8 +27,8 @@ require_remote_commit() {
   fi
 }
 
-require_remote_commit "$FE_URL" "cloudtalk_homework_fe"
-require_remote_commit "$BE_URL" "cloudtalk_homework_be"
+require_remote_commit "$FE_URL" "galaxia_homework_fe"
+require_remote_commit "$BE_URL" "galaxia_homework_be"
 
 if [[ -d "$FE_PATH" ]] || [[ -d "$BE_PATH" ]]; then
   echo "Error: remove or rename existing $FE_PATH / $BE_PATH directories before adding submodules." >&2

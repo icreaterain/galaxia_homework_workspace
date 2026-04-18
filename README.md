@@ -40,8 +40,8 @@ For the full architectural picture, see [ARCHITECTURE.md](ARCHITECTURE.md). For 
 ### 1. Clone with submodules
 
 ```bash
-git clone --recurse-submodules https://github.com/icreaterain/cloudtalk_homework_workspace.git
-cd cloudtalk_homework_workspace
+git clone --recurse-submodules https://github.com/icreaterain/galaxia_homework_workspace.git
+cd galaxia_homework_workspace
 ./scripts/setup.sh
 ```
 
@@ -61,7 +61,7 @@ docker compose up -d
 ### 3. Start the backend
 
 ```bash
-cd cloudtalk_homework_be
+cd galaxia_homework_be
 cp .env.example .env       # edit DATABASE_URL / JWT_SECRET if needed
 pnpm run migrate:local     # applies migrations + seeds demo data
 pnpm run dev               # API at http://localhost:3000
@@ -70,7 +70,7 @@ pnpm run dev               # API at http://localhost:3000
 ### 4. Start the frontend
 
 ```bash
-cd cloudtalk_homework_fe
+cd galaxia_homework_fe
 pnpm start                 # App at http://localhost:4200
 ```
 
@@ -102,8 +102,8 @@ pnpm start                 # App at http://localhost:4200
 
 | Path | Repository | Role |
 |---|---|---|
-| `cloudtalk_homework_be/` | [`icreaterain/cloudtalk_homework_be`](https://github.com/icreaterain/cloudtalk_homework_be) | NestJS API + Prisma + PostgreSQL |
-| `cloudtalk_homework_fe/` | [`icreaterain/cloudtalk_homework_fe`](https://github.com/icreaterain/cloudtalk_homework_fe) | Angular 19 SPA |
+| `galaxia_homework_be/` | [`icreaterain/galaxia_homework_be`](https://github.com/icreaterain/galaxia_homework_be) | NestJS API + Prisma + PostgreSQL |
+| `galaxia_homework_fe/` | [`icreaterain/galaxia_homework_fe`](https://github.com/icreaterain/galaxia_homework_fe) | Angular 19 SPA |
 
 ---
 
@@ -143,13 +143,13 @@ Playground available at `http://localhost:3000/graphql` in development.
 
 ```bash
 # Backend — unit tests
-cd cloudtalk_homework_be && pnpm test
+cd galaxia_homework_be && pnpm test
 
 # Backend — e2e tests (requires running Postgres)
-cd cloudtalk_homework_be && pnpm run test:e2e
+cd galaxia_homework_be && pnpm run test:e2e
 
 # Frontend — unit tests
-cd cloudtalk_homework_fe && pnpm test
+cd galaxia_homework_fe && pnpm test
 ```
 
 See [TESTING.md](TESTING.md) for coverage audit, patterns, and backlog.
@@ -226,16 +226,16 @@ The workspace ships two [Model Context Protocol (MCP)](https://modelcontextproto
 
 | Server | Location | What it exposes |
 |--------|----------|-----------------|
-| `cloudtalk-api` | `mcp/cloudtalk-api/` | REST + GraphQL API — list endpoints, call them, inspect responses |
-| `cloudtalk-db` | `mcp/cloudtalk-db/` | Read-only SQL queries against PostgreSQL |
+| `galaxia-api` | `mcp/galaxia-api/` | REST + GraphQL API — list endpoints, call them, inspect responses |
+| `galaxia-db` | `mcp/galaxia-db/` | Read-only SQL queries against PostgreSQL |
 
 ### Building the MCP servers
 
 The servers are TypeScript projects that must be compiled before use. `./scripts/setup.sh` does this automatically as part of the normal workspace setup. To build them in isolation:
 
 ```bash
-cd mcp/cloudtalk-api && pnpm install && pnpm run build
-cd mcp/cloudtalk-db  && pnpm install && pnpm run build
+cd mcp/galaxia-api && pnpm install && pnpm run build
+cd mcp/galaxia-db  && pnpm install && pnpm run build
 ```
 
 ### Connecting your AI assistant
@@ -260,5 +260,5 @@ The servers expect the backend and database to be running locally (steps 2–3 o
 | [WORKSPACE.md](WORKSPACE.md) | Agentic workspace context: conventions, setup, operating rules |
 | [TESTING.md](TESTING.md) | Test coverage audit, patterns, and gap backlog |
 | [adr/README.md](adr/README.md) | Architecture Decision Records index |
-| [cloudtalk_homework_be/README.md](cloudtalk_homework_be/README.md) | Backend setup, API reference, scripts |
-| [cloudtalk_homework_fe/README.md](cloudtalk_homework_fe/README.md) | Frontend setup, architecture, scripts |
+| [galaxia_homework_be/README.md](galaxia_homework_be/README.md) | Backend setup, API reference, scripts |
+| [galaxia_homework_fe/README.md](galaxia_homework_fe/README.md) | Frontend setup, architecture, scripts |

@@ -27,7 +27,7 @@ where the schema is the primary contract surface.
   3. `pnpm exec tsc --noEmit`, `pnpm run lint`, `pnpm test` — all run against fresh generated types
 - Local dev: developers run `pnpm run codegen` once after cloning, and again whenever
   `schema.graphql` changes. The codegen config points to `schema.graphql` via the
-  relative workspace path (`../cloudtalk_homework_be/schema.graphql`), so it never
+  relative workspace path (`../galaxia_homework_be/schema.graphql`), so it never
   requires the backend server to be running.
 
 ### REST contract
@@ -42,7 +42,7 @@ where the schema is the primary contract surface.
 ### Cross-repo change protocol
 
 When an API contract changes:
-1. Implement the change in `cloudtalk_homework_be/` and merge to `main`.
+1. Implement the change in `galaxia_homework_be/` and merge to `main`.
 2. Run `pnpm run schema:export` — commit the updated `schema.graphql` to the BE repo.
 3. Implement the FE change; CI will run `pnpm run codegen` against the new schema automatically.
 4. Merge the FE change to `main`.

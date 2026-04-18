@@ -10,7 +10,7 @@ import { queryInputSchema, runQuery } from './tools/query.js';
 const prisma = new PrismaClient({ log: [] });
 
 const server = new Server(
-  { name: 'cloudtalk-db', version: '2.0.0' },
+  { name: 'galaxia-db', version: '2.0.0' },
   { capabilities: { tools: {} } },
 );
 

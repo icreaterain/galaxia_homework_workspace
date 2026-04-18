@@ -16,7 +16,7 @@ hot-reload makes containerizing dev servers impractical and slower to iterate on
 
 The Compose file exposes Postgres on the default port `5432` with credentials:
 `postgres / postgres / reviews_dev`. These match the `DATABASE_URL` default in
-`cloudtalk_homework_be/.env.example`.
+`galaxia_homework_be/.env.example`.
 
 ## Trade-offs
 

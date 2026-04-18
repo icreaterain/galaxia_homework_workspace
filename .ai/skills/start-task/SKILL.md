@@ -23,12 +23,12 @@ If no issue number: use the task description to determine scope.
 
 Determine which repositories are affected:
 
-- **cloudtalk_homework_be**: Changes to API endpoints, database schema, services, auth, or GraphQL resolvers
-- **cloudtalk_homework_fe**: Changes to Angular components, services, routing, templates, or GraphQL queries
+- **galaxia_homework_be**: Changes to API endpoints, database schema, services, auth, or GraphQL resolvers
+- **galaxia_homework_fe**: Changes to Angular components, services, routing, templates, or GraphQL queries
 
 Cross-reference the dependency direction:
 ```
-cloudtalk_homework_fe  →  depends on  →  cloudtalk_homework_be
+galaxia_homework_fe  →  depends on  →  galaxia_homework_be
 ```
 
 If both repos are affected, the BE change must go first (see `.ai/skills/cross-repo-change/SKILL.md`).
@@ -55,8 +55,8 @@ Branch naming: `feat/<description>` or `fix/<description>`.
 **Branches created:** <list>
 
 **Planned changes:**
-- cloudtalk_homework_be: <description>
-- cloudtalk_homework_fe: <description>
+- galaxia_homework_be: <description>
+- galaxia_homework_fe: <description>
 
 **Execution order:** <BE first if cross-repo, otherwise parallel>
 

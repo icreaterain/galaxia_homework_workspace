@@ -10,19 +10,19 @@ The **strategic rationale** (why these layers, why these priorities) lives in
 
 ```bash
 # Backend unit tests
-cd cloudtalk_homework_be && pnpm test
+cd galaxia_homework_be && pnpm test
 
 # Backend unit tests with coverage report
-cd cloudtalk_homework_be && pnpm test -- --coverage
+cd galaxia_homework_be && pnpm test -- --coverage
 
 # Backend e2e (requires Postgres)
-cd cloudtalk_homework_be && pnpm run test:e2e
+cd galaxia_homework_be && pnpm run test:e2e
 
 # Frontend unit tests
-cd cloudtalk_homework_fe && pnpm test
+cd galaxia_homework_fe && pnpm test
 
 # Frontend unit tests with coverage report
-cd cloudtalk_homework_fe && pnpm test -- --coverage
+cd galaxia_homework_fe && pnpm test -- --coverage
 ```
 
 ---
