@@ -3,3 +3,4 @@
 node_modules/
 mcp/**/dist/
 .cursor/
+.galaxia/
